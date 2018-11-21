@@ -91,10 +91,52 @@ hex_points <- spsample(iceland, type = "hexagonal", cellsize = 30)
 hex_grid <- HexPoints2SpatialPolygons(hex_points, dx = 30)
 
 
-p1 <- hex_points[1]
+p1 <- hex_points[20]
 hex_grid1 <- HexPoints2SpatialPolygons(p1, dx = 30)
-
 x <- gIntersection(iceland, hex_grid1)
+
+
+
+
+y <- c()
+hex_points <- spsample(iceland, type = "hexagonal", cellsize = 30)
+df <- data.frame(matrix(ncol = 1050, nrow = 0))
+
+for (i in 1:nrow(hex_points@coords)){
+  
+  point <- hex_points[i]
+  
+  # Generate a hexagon around point i
+  hexagon <- HexPoints2SpatialPolygons(point, dx = 30)
+
+  ## Generate explanatory variable 
+  intersection <- gIntersection(iceland, hexagon)
+  overlap <- bind(hexagon, intersection)
+  ext <- extent(overlap)
+  rr <- raster(ext, res=1)
+  rr <- rasterize(overlap, rr)
+  
+  rm <- raster::as.matrix(rr)
+  rm[is.na(rm)] = 0
+  xi <- as.vector(t(rm))
+  
+  df[i,] <- xi
+  
+  ## This loop checks if a polygon overlaps a polygon
+  if(gIntersects(ports_iceland, hexagon)){
+    y[i] <- 1
+  } else{
+    y[i] <- 0
+  }
+}
+
+# Final dataframe
+df[,dim(df)[2]+1] <- y
+df <- df[, colSums(df != 0) > 0]
+
+
+
+
 
 
 # sa ma den lagres som en raster.
@@ -104,25 +146,57 @@ tm_shape(hex_grid1) +
   tm_shape(x) +
   tm_fill(col = "grey") + tm_layout(frame=FALSE)
 
-
-tm_shape(iceland) +
-  tm_fill()+
-  tm_shape(hex_grid) +
-  tm_borders(col = "white")+
-  tm_shape(ports_iceland) +
-  tm_dots(shape = 1, size=0.1) + tm_layout(frame=FALSE)
+sh <- bind(hex_grid1, x)
+ext <- extent(sh)
+rr <- raster(ext, res=1)
+rr <- rasterize(sh, rr)
 
 
 
-as.tibble(x)
+
+
 
 # transform to raster, then matrix, then to a tibble of datasets like in the number analysis.
-ext <- extent(x)
-rr <- raster(ext, res=0.5)
-rr <- rasterize(x, rr)
+ext <- extent(sh)
+rr <- raster(ext, res=1)
+rr <- rasterize(sh, rr)
 
-tm_shape(rr)+tm_raster()
+tm_shape(rr)+tm_raster()+ tm_layout(frame=FALSE)
 
 rm <- raster::as.matrix(rr)
 rm[is.na(rm)] = 0
+
+x1 <- as.vector(t(rm))
+
+length(x1)
+
+tib <- as.tibble(x1)
+
+
+# Hver rad er en hexagon
+
+
+
+m=matrix(1:12,3,4)
+as.vector(m)
+as.vector(t(m))
+
+df <- data.frame(matrix(ncol = length(x1), nrow = 0))
+df[1,] <- x1
+
+
+# hvordan kan man finne hvilken som har en nh og ikke?
+
+
+
+
+
+
+A = matrix(c(2, 4, 3, 1, 5, 7), c(1,2,3,4,5,6),  nrow=2, ncol=3)          
+
+
+df1 <- data.frame(a=c(1,2,3), b=c(1,2,3))
+df1[,3] <- c(0,0,0)
+
+df2 <- df1[, colSums(df1 != 0) > 0]
 
