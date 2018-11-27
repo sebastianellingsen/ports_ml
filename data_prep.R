@@ -1,7 +1,7 @@
 
 ## Loading packages
 if (!require(pacman)) install.packages("pacman")
-p_load(tidyverse, sf, raster, tmap, sp, rgdal, rnaturalearth, rgeos)
+p_load(tidyverse, sf, raster, tmap, sp, rgdal, rnaturalearth, rgeos, viridis)
 
 source("make_grid.R")
 
@@ -28,79 +28,21 @@ countries10 <- spTransform(countries10, newcrs)
 coastline10 <- spTransform(coastline10, newcrs)
 ports <- spTransform(ports, newcrs)
 
-#elev <- projectRaster(elev, crs=newcrs)
-
 # Subsetting to north and south america and creating the grid
 
 iceland <- countries10[countries10$ADMIN=="Iceland",]
 ports_iceland <- ports[ports$COUNTRY=="IC",]
 
-
-
 buffer <- gBuffer(iceland, width = 15)
 
 coastline_iceland <- gIntersection(buffer, coastline10) 
-elev_crop <- crop(elev, buffer)
+#elev_crop <- crop(elev, buffer)
 
-
-# hex - with clipping
-hex_grid_c <- make_grid(iceland, type = "hexagonal", cell_area = 1200, clip = FALSE)
-plot(iceland, col = "grey50", bg = "light blue", axes = FALSE)
-plot(hex_grid_c, border = "orange", add = TRUE)
-box()
-# square - without clipping
-sq_grid <- make_grid(study_area_utm, type = "square", cell_area = 625, clip = FALSE)
-plot(study_area_utm, col = "grey50", bg = "light blue", axes = FALSE)
-plot(sq_grid, border = "orange", add = TRUE)
-box()
-# square - with clipping
-sq_grid_c <- make_grid(iceland, type = "square", cell_area = 625, clip = TRUE)
-plot(iceland, col = "grey50", bg = "light blue", axes = FALSE)
-plot(sq_grid_c, border = "orange", add = TRUE)
-box()
-
-
-
-tm_shape(iceland) +
-  tm_fill()+
-tm_shape(hex_grid_c) +
-  tm_borders(col = "white")+
-  tm_shape(ports_iceland) +
-  tm_dots(shape = 1, size=0.1) + tm_layout(frame=FALSE)
-  
-
-
-#bruk en buffer
-
-x <- crop(polydf2, polydf1)
-
-
-buffer
-
-
-hex_points <- spsample(buffer, type = "hexagonal", cellsize = 30, offset = c(0, 0))
-hex_grid <- HexPoints2SpatialPolygons(hex_points, dx = 30)
-plot(study_area, col = "grey50", bg = "light blue", axes = TRUE)
-plot(hex_points, col = "black", pch = 20, cex = 0.5, add = T)
-plot(hex_grid, border = "orange", add = T)
-
-
-
-## Dataframe with one row for each grid
-hex_points <- spsample(iceland, type = "hexagonal", cellsize = 30)
-hex_grid <- HexPoints2SpatialPolygons(hex_points, dx = 30)
-
-
-p1 <- hex_points[20]
-hex_grid1 <- HexPoints2SpatialPolygons(p1, dx = 30)
-x <- gIntersection(iceland, hex_grid1)
-
-
-
-
+## Generate a dataset for each 
 y <- c()
-hex_points <- spsample(iceland, type = "hexagonal", cellsize = 30)
+hex_points <- spsample(buffer, type = "hexagonal", cellsize = 30)
 df <- data.frame(matrix(ncol = 1050, nrow = 0))
+hexagons <- list()
 
 for (i in 1:nrow(hex_points@coords)){
   
@@ -108,6 +50,7 @@ for (i in 1:nrow(hex_points@coords)){
   
   # Generate a hexagon around point i
   hexagon <- HexPoints2SpatialPolygons(point, dx = 30)
+  hexagons[i] <- hexagon
 
   ## Generate explanatory variable 
   intersection <- gIntersection(iceland, hexagon)
@@ -115,7 +58,7 @@ for (i in 1:nrow(hex_points@coords)){
   ext <- extent(overlap)
   rr <- raster(ext, res=1)
   rr <- rasterize(overlap, rr)
-  
+
   rm <- raster::as.matrix(rr)
   rm[is.na(rm)] = 0
   xi <- as.vector(t(rm))
@@ -130,9 +73,102 @@ for (i in 1:nrow(hex_points@coords)){
   }
 }
 
-# Final dataframe
+# Final dataframe for prediction
 df[,dim(df)[2]+1] <- y
 df <- df[, colSums(df != 0) > 0]
+data <- as.tibble(df)
+data <- data %>% dplyr::select(V1051, everything()) %>% rename(y = V1051)
+
+# Make a spatial dataframe with the ports and predicted ports
+hexagons <- list(hexagons, makeUniqueIDs = TRUE) %>% 
+  flatten() %>% 
+  do.call(rbind, .)
+
+library(ranger)
+library(Metrics)
+fmodel <- ranger(formula=y~., data=df, num.trees = 100, mtry = 4)
+
+prediction <- predict(fmodel, df)$predictions
+y_pred <- ifelse(predict(fmodel, df)$predictions>0.5, 1, 0)
+
+eval_df <- data.frame(y, y_pred, prediction)
+
+hexagons <- gIntersection(hexagons, iceland, byid = TRUE)
+ID <- sapply(hexagons@polygons, function(x) x@ID)
+row.names(eval_df) <- ID
+
+# Joining the dataframe with a spatial object
+sps_df <- SpatialPolygonsDataFrame(hexagons, eval_df, match.ID = TRUE)
+
+tm_shape(sps_df) +
+  tm_fill(col="prediction", palette=plasma(256)) + tm_layout(frame=FALSE) +
+tm_shape(hexagons) +
+  tm_borders(col = "white") +
+tm_shape(ports_iceland) +
+  tm_dots(shape = 1, size=0.1)  
+
+
+
+
+
+hexagons@polygons[[3]]@Polygons[[1]]@coords
+#sapply(hexagons@polygons, function(x) x@Polygons[[1]]@coords)
+
+sapply(hex_points@coords, function(x) x*2)
+
+map(hex_points@coords, mean)
+
+
+
+# Vil jeg ha en spatial dataframe sa man kan plotte resulatene ogsa.
+# Hvordan regner man gjennomsnittet per shape?
+# How much does a coastline look like a natural harbor?
+
+
+
+hex_points
+hex_grid <- HexPoints2SpatialPolygons(hex_points, dx = 30)
+
+ports_intersection <- over(hex_grid, ports_iceland)
+
+
+
+
+
+
+library(ranger)
+library(Metrics)
+fmodel <- ranger(formula=y~., data=df, num.trees = 100, mtry = 4)
+
+prediction <- predict(fmodel, df)$predictions
+y_pred <- ifelse(predict(fmodel, df)$predictions>0.5, 1, 0)
+
+eval_df <- data.frame(y, y_pred, prediction)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -141,7 +177,7 @@ df <- df[, colSums(df != 0) > 0]
 
 # sa ma den lagres som en raster.
 
-tm_shape(hex_grid1) +
+tm_shape(hex_grid) +
   tm_borders(col = "grey")+
   tm_shape(x) +
   tm_fill(col = "grey") + tm_layout(frame=FALSE)
@@ -161,7 +197,8 @@ ext <- extent(sh)
 rr <- raster(ext, res=1)
 rr <- rasterize(sh, rr)
 
-tm_shape(rr)+tm_raster()+ tm_layout(frame=FALSE)
+tm_shape(rr)+tm_raster()+ tm_layout(frame=FALSE) 
+  
 
 rm <- raster::as.matrix(rr)
 rm[is.na(rm)] = 0
@@ -199,4 +236,68 @@ df1 <- data.frame(a=c(1,2,3), b=c(1,2,3))
 df1[,3] <- c(0,0,0)
 
 df2 <- df1[, colSums(df1 != 0) > 0]
+
+
+
+tm_shape(iceland) +
+  tm_fill() +
+  tm_shape(hex_grid) +
+  tm_borders(col = "white")+
+  tm_shape(ports_iceland) +
+  tm_dots(shape = 1, size=0.1) + tm_layout(frame=FALSE)
+
+
+overlap <- bind(hex_grid, iceland)
+
+
+
+#bruk en buffer
+
+x <- crop(polydf2, polydf1)
+
+
+buffer
+
+
+hex_points <- spsample(buffer, type = "hexagonal", cellsize = 30, offset = c(0, 0))
+hex_grid <- HexPoints2SpatialPolygons(hex_points, dx = 30)
+plot(study_area, col = "grey50", bg = "light blue", axes = TRUE)
+plot(hex_points, col = "black", pch = 20, cex = 0.5, add = T)
+plot(hex_grid, border = "orange", add = T)
+
+
+
+## Dataframe with one row for each grid
+hex_points <- spsample(buffer, type = "hexagonal", cellsize = 30)
+hex_grid <- HexPoints2SpatialPolygons(hex_points, dx = 30)
+
+p1 <- hex_points[20]
+hex_grid1 <- HexPoints2SpatialPolygons(p1, dx = 30)
+x <- gIntersection(iceland, hex_grid1)
+
+
+
+
+# Find the overlap between 
+# Trenger na bare a fargelgge ports, sa klippe det til for 
+# presentasjon
+g <- gIntersection(hex_grid, iceland, byid = TRUE)
+
+# kan man joine hexagons til en polygon? sa legge til en dataframe? sjekk hva som skjer med id 
+# nar man gjor det.
+
+hex_points <- spsample(buffer, type = "hexagonal", cellsize = 30)
+
+hexagon1 <- HexPoints2SpatialPolygons(hex_points[1], dx = 30)
+hexagon2 <- HexPoints2SpatialPolygons(hex_points[2], dx = 30)
+hexagon3 <- HexPoints2SpatialPolygons(hex_points[3], dx = 30)
+
+# Joining two shapefiles
+
+hexagons <- list(1,2,3)
+
+
+hex_points <- spsample(buffer, type = "hexagonal", cellsize = 30, offset = c(0, 0))
+hex_grid <- HexPoints2SpatialPolygons(hex_points, dx = 30)
+
 
