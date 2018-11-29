@@ -123,7 +123,7 @@ tm_shape(sps_df) +
 
 # Now take the average of some underlying rasters over the polygons.
 # test for other countries
-
+ 
 
 
 
