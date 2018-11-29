@@ -1,5 +1,8 @@
 
-## Loading packages
+###################################
+## Loading packages and datasets ##
+###################################
+
 if (!require(pacman)) install.packages("pacman")
 p_load(tidyverse, sf, raster, tmap, sp, rgdal, rnaturalearth, rgeos, viridis)
 
@@ -8,15 +11,12 @@ source("make_grid.R")
 newcrs <- CRS("+proj=robin +datum=WGS84 +units=km")
 
 # Ports shapefile
-#ports <- st_read("data/WPI_Shapefiles/WPI_Shapefile2010/WPI.shp") %>% 
-#  filter(HARBORTYPE=="CN") 
-
 ports <- readOGR("data/WPI_Shapefiles/WPI_Shapefile2010", "WPI")
 ports <- ports[ports$HARBORTYPE=="CN" & !is.na(ports$HARBORTYPE),]
 
 # Coastline
 coastline10 <- ne_download(scale = 10, type = 'coastline', category = 'physical')
-  
+
 # Countries
 countries10 <- ne_download(scale = 10, type = 'countries', category = 'cultural')
 
@@ -28,37 +28,41 @@ countries10 <- spTransform(countries10, newcrs)
 coastline10 <- spTransform(coastline10, newcrs)
 ports <- spTransform(ports, newcrs)
 
-# Subsetting to north and south america and creating the grid
-
+# Subsetting to region of interest
 iceland <- countries10[countries10$ADMIN=="Iceland",]
 ports_iceland <- ports[ports$COUNTRY=="IC",]
 
+# Creating a buffer around the region of interest
 buffer <- gBuffer(iceland, width = 15)
 
 coastline_iceland <- gIntersection(buffer, coastline10) 
 #elev_crop <- crop(elev, buffer)
 
-## Generate a dataset for each 
+
+############################
+## Generating the dataset ##
+############################
+
 y <- c()
 hex_points <- spsample(buffer, type = "hexagonal", cellsize = 30)
+hexagons <- sapply(1:nrow(hex_points@coords), function(x) HexPoints2SpatialPolygons(hex_points[x],dx = 30)) 
+hexagons <- list(hexagons, makeUniqueIDs = TRUE) %>% 
+  flatten() %>% 
+  do.call(rbind, .)
+
 df <- data.frame(matrix(ncol = 1050, nrow = 0))
-hexagons <- list()
 
 for (i in 1:nrow(hex_points@coords)){
-  
-  point <- hex_points[i]
-  
-  # Generate a hexagon around point i
-  hexagon <- HexPoints2SpatialPolygons(point, dx = 30)
-  hexagons[i] <- hexagon
 
+  hexagon <- hexagons[i] 
+  
   ## Generate explanatory variable 
   intersection <- gIntersection(iceland, hexagon)
   overlap <- bind(hexagon, intersection)
   ext <- extent(overlap)
   rr <- raster(ext, res=1)
   rr <- rasterize(overlap, rr)
-
+  
   rm <- raster::as.matrix(rr)
   rm[is.na(rm)] = 0
   xi <- as.vector(t(rm))
@@ -79,10 +83,10 @@ df <- df[, colSums(df != 0) > 0]
 data <- as.tibble(df)
 data <- data %>% dplyr::select(V1051, everything()) %>% rename(y = V1051)
 
-# Make a spatial dataframe with the ports and predicted ports
-hexagons <- list(hexagons, makeUniqueIDs = TRUE) %>% 
-  flatten() %>% 
-  do.call(rbind, .)
+
+############################################
+## Predicting using a random forest model ##
+############################################
 
 library(ranger)
 library(Metrics)
@@ -93,18 +97,27 @@ y_pred <- ifelse(predict(fmodel, df)$predictions>0.5, 1, 0)
 
 eval_df <- data.frame(y, y_pred, prediction)
 
+
+###########################
+## Joining the dataframe ##
+###########################
+
 hexagons <- gIntersection(hexagons, iceland, byid = TRUE)
 ID <- sapply(hexagons@polygons, function(x) x@ID)
 row.names(eval_df) <- ID
 
-# Joining the dataframe with a spatial object
 sps_df <- SpatialPolygonsDataFrame(hexagons, eval_df, match.ID = TRUE)
+
+
+#######################
+## Plotting the data ##
+#######################
 
 tm_shape(sps_df) +
   tm_fill(col="prediction", palette=plasma(256)) + tm_layout(frame=FALSE) +
-tm_shape(hexagons) +
+  tm_shape(hexagons) +
   tm_borders(col = "white") +
-tm_shape(ports_iceland) +
+  tm_shape(ports_iceland) +
   tm_dots(shape = 1, size=0.1)  
 
 
@@ -124,29 +137,11 @@ tm_shape(ports_iceland) +
 
 
 
-hexagons@polygons[[3]]@Polygons[[1]]@coords
-#sapply(hexagons@polygons, function(x) x@Polygons[[1]]@coords)
-
-sapply(hexagons@polygons, function(x) x)
-
-
-
-
 
 hexagons <- sapply(1:nrow(hex_points@coords), function(x) HexPoints2SpatialPolygons(hex_points[x],dx = 30)) 
 hexagons <- list(hexagons, makeUniqueIDs = TRUE) %>% 
   flatten() %>% 
   do.call(rbind, .)
-
-
-intersection <- gIntersection(iceland, hexagons[2])
-overlap <- bind(hexagons[2], intersection)
-ext <- extent(overlap)
-rr <- raster(ext, res=1)
-rr <- rasterize(overlap, rr)
-
-rasters <- sapply(1:length(hexagons@polygons), function(x) make_raster(hexagons[x]))
-
 
 make_raster <- function(x){
   intersection <- gIntersection(iceland, x)
@@ -155,19 +150,20 @@ make_raster <- function(x){
   rr <- raster(ext, res=1)
   rr <- rasterize(overlap, rr)
 }
+rasters <- sapply(1:length(hexagons@polygons), function(x) make_raster(hexagons[x]))
 
-
-gIntersection(iceland, hexagons[10])
-
-
-
-
-hexagons <- list(hexagons, makeUniqueIDs = TRUE) %>% 
-  flatten() %>% 
-  do.call(rbind, .)
+# Use this chunk instead of the loop, but keep the loop that sets up the dataset, 
+# it's still easier to read.
 
 
 
+
+
+
+
+hexagons@polygons[[3]]@Polygons[[1]]@coords
+#sapply(hexagons@polygons, function(x) x@Polygons[[1]]@coords)
+sapply(hexagons@polygons, function(x) x)
 
 
 hexagon <- HexPoints2SpatialPolygons(point, dx = 30)
