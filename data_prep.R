@@ -108,15 +108,80 @@ tm_shape(ports_iceland) +
   tm_dots(shape = 1, size=0.1)  
 
 
+# Now take the average of some underlying rasters over the polygons.
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 hexagons@polygons[[3]]@Polygons[[1]]@coords
 #sapply(hexagons@polygons, function(x) x@Polygons[[1]]@coords)
 
-sapply(hex_points@coords, function(x) x*2)
+sapply(hexagons@polygons, function(x) x)
 
-map(hex_points@coords, mean)
+
+
+
+
+hexagons <- sapply(1:nrow(hex_points@coords), function(x) HexPoints2SpatialPolygons(hex_points[x],dx = 30)) 
+hexagons <- list(hexagons, makeUniqueIDs = TRUE) %>% 
+  flatten() %>% 
+  do.call(rbind, .)
+
+
+intersection <- gIntersection(iceland, hexagons[2])
+overlap <- bind(hexagons[2], intersection)
+ext <- extent(overlap)
+rr <- raster(ext, res=1)
+rr <- rasterize(overlap, rr)
+
+rasters <- sapply(1:length(hexagons@polygons), function(x) make_raster(hexagons[x]))
+
+
+make_raster <- function(x){
+  intersection <- gIntersection(iceland, x)
+  overlap <- bind(x, intersection)
+  ext <- extent(overlap)
+  rr <- raster(ext, res=1)
+  rr <- rasterize(overlap, rr)
+}
+
+
+gIntersection(iceland, hexagons[10])
+
+
+
+
+hexagons <- list(hexagons, makeUniqueIDs = TRUE) %>% 
+  flatten() %>% 
+  do.call(rbind, .)
+
+
+
+
+
+hexagon <- HexPoints2SpatialPolygons(point, dx = 30)
+hexagons[i] <- hexagon
+
+
+
+make_hexagons <- function(x){
+  HexPoints2SpatialPolygons(x, dx = 30)
+}
+
+
+
+
 
 
 
@@ -299,5 +364,128 @@ hexagons <- list(1,2,3)
 
 hex_points <- spsample(buffer, type = "hexagonal", cellsize = 30, offset = c(0, 0))
 hex_grid <- HexPoints2SpatialPolygons(hex_points, dx = 30)
+
+
+
+
+
+
+
+
+
+
+## Backup, denne fungerer
+
+## Loading packages
+if (!require(pacman)) install.packages("pacman")
+p_load(tidyverse, sf, raster, tmap, sp, rgdal, rnaturalearth, rgeos, viridis)
+
+source("make_grid.R")
+
+newcrs <- CRS("+proj=robin +datum=WGS84 +units=km")
+
+# Ports shapefile
+#ports <- st_read("data/WPI_Shapefiles/WPI_Shapefile2010/WPI.shp") %>% 
+#  filter(HARBORTYPE=="CN") 
+
+ports <- readOGR("data/WPI_Shapefiles/WPI_Shapefile2010", "WPI")
+ports <- ports[ports$HARBORTYPE=="CN" & !is.na(ports$HARBORTYPE),]
+
+# Coastline
+coastline10 <- ne_download(scale = 10, type = 'coastline', category = 'physical')
+
+# Countries
+countries10 <- ne_download(scale = 10, type = 'countries', category = 'cultural')
+
+# Elevation data
+elev <- raster("data/ETOPO1_Ice_g_geotiff.tif")
+crs(elev) <- crs(countries10)
+
+countries10 <- spTransform(countries10, newcrs)
+coastline10 <- spTransform(coastline10, newcrs)
+ports <- spTransform(ports, newcrs)
+
+# Subsetting to north and south america and creating the grid
+
+iceland <- countries10[countries10$ADMIN=="Iceland",]
+ports_iceland <- ports[ports$COUNTRY=="IC",]
+
+buffer <- gBuffer(iceland, width = 15)
+
+coastline_iceland <- gIntersection(buffer, coastline10) 
+#elev_crop <- crop(elev, buffer)
+
+## Generate a dataset for each 
+y <- c()
+hex_points <- spsample(buffer, type = "hexagonal", cellsize = 30)
+df <- data.frame(matrix(ncol = 1050, nrow = 0))
+hexagons <- list()
+
+for (i in 1:nrow(hex_points@coords)){
+  
+  point <- hex_points[i]
+  
+  # Generate a hexagon around point i
+  hexagon <- HexPoints2SpatialPolygons(point, dx = 30)
+  hexagons[i] <- hexagon
+  
+  ## Generate explanatory variable 
+  intersection <- gIntersection(iceland, hexagon)
+  overlap <- bind(hexagon, intersection)
+  ext <- extent(overlap)
+  rr <- raster(ext, res=1)
+  rr <- rasterize(overlap, rr)
+  
+  rm <- raster::as.matrix(rr)
+  rm[is.na(rm)] = 0
+  xi <- as.vector(t(rm))
+  
+  df[i,] <- xi
+  
+  ## This loop checks if a polygon overlaps a polygon
+  if(gIntersects(ports_iceland, hexagon)){
+    y[i] <- 1
+  } else{
+    y[i] <- 0
+  }
+}
+
+# Final dataframe for prediction
+df[,dim(df)[2]+1] <- y
+df <- df[, colSums(df != 0) > 0]
+data <- as.tibble(df)
+data <- data %>% dplyr::select(V1051, everything()) %>% rename(y = V1051)
+
+# Make a spatial dataframe with the ports and predicted ports
+hexagons <- list(hexagons, makeUniqueIDs = TRUE) %>% 
+  flatten() %>% 
+  do.call(rbind, .)
+
+library(ranger)
+library(Metrics)
+fmodel <- ranger(formula=y~., data=df, num.trees = 100, mtry = 4)
+
+prediction <- predict(fmodel, df)$predictions
+y_pred <- ifelse(predict(fmodel, df)$predictions>0.5, 1, 0)
+
+eval_df <- data.frame(y, y_pred, prediction)
+
+hexagons <- gIntersection(hexagons, iceland, byid = TRUE)
+ID <- sapply(hexagons@polygons, function(x) x@ID)
+row.names(eval_df) <- ID
+
+# Joining the dataframe with a spatial object
+sps_df <- SpatialPolygonsDataFrame(hexagons, eval_df, match.ID = TRUE)
+
+tm_shape(sps_df) +
+  tm_fill(col="prediction", palette=plasma(256)) + tm_layout(frame=FALSE) +
+  tm_shape(hexagons) +
+  tm_borders(col = "white") +
+  tm_shape(ports_iceland) +
+  tm_dots(shape = 1, size=0.1)  
+
+
+
+
 
 
