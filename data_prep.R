@@ -137,7 +137,6 @@ tm_shape(sps_df) +
 
 
 
-
 hexagons <- sapply(1:nrow(hex_points@coords), function(x) HexPoints2SpatialPolygons(hex_points[x],dx = 30)) 
 hexagons <- list(hexagons, makeUniqueIDs = TRUE) %>% 
   flatten() %>% 
