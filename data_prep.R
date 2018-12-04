@@ -22,7 +22,10 @@ countries10 <- ne_download(scale = 10, type = 'countries', category = 'cultural'
 
 # Elevation data
 elev <- raster("data/ETOPO1_Ice_g_geotiff.tif")
-crs(elev) <- crs(countries10)
+#crs(elev) <- crs(countries10)
+
+pop_density <- raster("data/population_density/gpw_v4_une_atotpopbt_dens_2pt5_min.nc")
+crs(pop_density) <- crs(iceland)
 
 countries10 <- spTransform(countries10, newcrs)
 coastline10 <- spTransform(coastline10, newcrs)
@@ -36,6 +39,8 @@ ports_iceland <- ports[ports$COUNTRY=="IC",]
 buffer <- gBuffer(iceland, width = 15)
 
 coastline_iceland <- gIntersection(buffer, coastline10) 
+buffer_coastline <- gBuffer(coastline_iceland, width = 30)
+
 #elev_crop <- crop(elev, buffer)
 
 
@@ -120,10 +125,41 @@ tm_shape(sps_df) +
   tm_shape(ports_iceland) +
   tm_dots(shape = 1, size=0.1)  
 
-
 # Now take the average of some underlying rasters over the polygons.
 # test for other countries
  
+
+
+## Projecting a raster
+
+
+tm_shape(pop_density) + tm_raster() + 
+  tm_shape(coastline10) + tm_lines()
+
+
+intersection <- crop(pop_density, iceland)
+
+tm_shape(intersection) + tm_raster(n=100) + 
+  tm_shape(iceland) + tm_borders()
+
+
+
+
+
+
+
+
+
+
+
+
+
+# make the buffer out of the coastline border, to make it go faster, then don't need to rin over 
+# all the hexagons.
+
+
+
+
 
 
 
