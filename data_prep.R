@@ -51,46 +51,46 @@ generating_data <- function(country, port){
 
   ## Generating the dataset ##
 
-  y <- c()
+  
   hex_points <- spsample(buffer, type = "hexagonal", cellsize = 30)
   hexagons <- sapply(1:nrow(hex_points@coords), function(x) HexPoints2SpatialPolygons(hex_points[x],dx = 30)) 
   hexagons <- list(hexagons, makeUniqueIDs = TRUE) %>% 
    flatten() %>% 
    do.call(rbind, .)
-
+  
+  y <- rep(NA, dim(hex_points@coords)[1])
   df <- data.frame(matrix(ncol = 1050, nrow = dim(hex_points@coords)[1]))
 
   for (i in 1:nrow(hex_points@coords)){
+    hexagon <- hexagons[i] 
   
-   hexagon <- hexagons[i] 
-  
-    if(gIntersects(coastline_iceland, hexagon)){
+    if(gIntersects(coastline_iceland, hexagons[i])){
     
       ## Generate explanatory variable 
       intersection <- gIntersection(iceland, hexagon)
       overlap <- bind(hexagon, intersection)
-      ext <- extent(overlap)
-      rr <- raster(ext, res=1)
+      rr <- raster(extent(overlap), res=1)
       rr <- rasterize(overlap, rr)
-    
+      
       rm <- raster::as.matrix(rr)
       rm[is.na(rm)] = 0
       xi <- as.vector(t(rm))
-    
+      
       df[i,] <- xi
+      
     
     } else{
-      df[i,] <- 1
+      df[i,] <- "inland"
     }
   
    ## This loop checks if a polygon overlaps a polygon
-   if(gIntersects(ports_iceland, hexagon)){
+   if(gIntersects(ports_iceland, hexagons[i])){
       y[i] <- 1
     } else{
       y[i] <- 0
    }
   
-   print(i)
+   print(i/dim(hex_points@coords)[1])
   }
   
   # Final dataframe for prediction
