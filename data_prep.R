@@ -18,7 +18,7 @@ ports <- ports[ports$HARBORTYPE=="CN" & !is.na(ports$HARBORTYPE),]
 coastline10 <- ne_download(scale = 10, type = 'coastline', category = 'physical')
 
 # Countries
-countries10 <- ne_download(scale = 10, type = 'countries', category = 'cultural')
+countries10 <- ne_download(scale = 110, type = 'countries', category = 'cultural')
 
 # Elevation data
 #elev <- raster("data/ETOPO1_Ice_g_geotiff.tif")
@@ -32,15 +32,17 @@ coastline10 <- spTransform(coastline10, newcrs)
 ports <- spTransform(ports, newcrs)
 
 
-generating_data <- function(country, port){
+generating_data <- function(){
   
   ## Note: The function affects the global environment by 
   ## storing dataframes and sp objects in the workspace.
   
   # Subsetting to region of interest
-  iceland <- countries10[countries10$ADMIN==country,]
-  ports_iceland <- ports[ports$COUNTRY==port,]
-
+  #iceland <- countries10[countries10$CONTINENT!="Antarctica" & countries10$CONTINENT!="Seven seas (open ocean)",]
+  #ports_iceland <- ports[ports$COUNTRY==port,]
+  iceland <- countries10[countries10$ADMIN=="Iceland",]
+  ports_iceland <- ports[ports$COUNTRY=="IC",]
+  
   # Creating a buffer around the region of interest
   buffer <- gBuffer(iceland, width = 15)
 
@@ -63,20 +65,21 @@ generating_data <- function(country, port){
 
   for (i in 1:nrow(hex_points@coords)){
     hexagon <- hexagons[i] 
+    
   
     if(gIntersects(coastline_iceland, hexagons[i])){
     
       ## Generate explanatory variable 
-      intersection <- gIntersection(iceland, hexagon)
-      overlap <- bind(hexagon, intersection)
-      rr <- raster(extent(overlap), res=1)
-      rr <- rasterize(overlap, rr)
+      #intersection <- gIntersection(iceland, hexagon)
+      #overlap <- bind(hexagon, intersection)
+      #rr <- raster(extent(overlap), res=1)
+      #rr <- rasterize(overlap, rr)
       
-      rm <- raster::as.matrix(rr)
-      rm[is.na(rm)] = 0
-      xi <- as.vector(t(rm))
+      #rm <- raster::as.matrix(rr)
+      #rm[is.na(rm)] = 0
+      #xi <- as.vector(t(rm))
       
-      df[i,] <- xi
+      #df[i,] <- xi
       
     
     } else{
@@ -108,4 +111,14 @@ generating_data <- function(country, port){
 
 
 
- 
+
+
+
+
+
+coast_hexagons <- hexagons[sapply(1:nrow(hex_points@coords), function(x) gIntersects(coastline_iceland,hexagons[x]))==TRUE]
+inland_hexagons <- hexagons[sapply(1:nrow(hex_points@coords), function(x) gIntersects(coastline_iceland,hexagons[x]))==FALSE]
+
+
+
+
