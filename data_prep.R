@@ -1,4 +1,4 @@
-## Loading packages and datasets ##
+## Loading packages and datasets 
 
 if (!require(pacman)) install.packages("pacman")
 p_load(tidyverse, sf, raster, tmap, sp, rgdal, rnaturalearth, rgeos, viridis, tictoc)
@@ -19,8 +19,7 @@ countries10 <- spTransform(countries10, newcrs)
 coastline10 <- spTransform(coastline10, newcrs)
 ports <- spTransform(ports, newcrs)
 
-## Function to generate the main dataset ##
-
+## Function generating the main dataset 
 generating_data <- function(){
   
   ## Note: The function affects the global environment by 
@@ -28,9 +27,9 @@ generating_data <- function(){
   
   tic()
   
-  iceland <- countries10[countries10$ADMIN=="Iceland",]
-  ports_iceland <- ports[ports$COUNTRY=="IC",]
-  buffer <- gBuffer(iceland, width = 15)
+  study_area <- countries10[countries10$ADMIN=="Iceland",]
+  ports_study_area <- ports[ports$COUNTRY=="IC",]
+  buffer <- gBuffer(study_area, width = 15)
   
   coastline_iceland <- gIntersection(buffer, coastline10) 
   hex_points <- spsample(buffer, type = "hexagonal", cellsize = 30)
@@ -41,7 +40,7 @@ generating_data <- function(){
   
   ## Generates the coast line dataset 
   make_raster <- function(x){
-    intersection <- gIntersection(iceland, x)
+    intersection <- gIntersection(study_area, x)
     overlap <- bind(x, intersection)
     rr <- raster(extent(overlap), res=1)
     rr <- rasterize(overlap, rr)
@@ -53,7 +52,7 @@ generating_data <- function(){
   coast_hexagons <- hexagons[sapply(1:nrow(hex_points@coords), function(x) gIntersects(coastline_iceland, hexagons[x]))==TRUE]
   coast_data <- t(sapply(1:length(coast_hexagons@polygons), function(x) make_raster(coast_hexagons[x])))
   
-  y <- as.matrix(sapply(1:length(coast_hexagons@polygons), function(x) ifelse((gIntersects(ports_iceland,coast_hexagons[x])), 1, 0)))
+  y <- as.matrix(sapply(1:length(coast_hexagons@polygons), function(x) ifelse((gIntersects(ports_study_area,coast_hexagons[x])), 1, 0)))
   ID <- sapply(coast_hexagons@polygons, function(x) x@ID)
   coast_data_final <- cbind(ID, coast_data, y)
   
@@ -73,8 +72,8 @@ generating_data <- function(){
   
   dataset <<- data
   hexagons <<- hexagons
-  iceland <<- iceland
-  ports_iceland <<- ports_iceland
+  study_area <<- study_area
+  ports_study_area <<- ports_study_area
   
   toc()
 }
