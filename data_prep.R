@@ -22,8 +22,8 @@ ports <- spTransform(ports, newcrs)
 ## Function generating the main dataset 
 generating_data <- function(){
   
-  ## Note: The function affects the global environment by 
-  ## storing dataframes and sp objects in the workspace.
+  # Note: The function affects the global environment by 
+  # storing dataframes and sp objects in the workspace.
   
   tic()
   
@@ -31,7 +31,7 @@ generating_data <- function(){
   ports_study_area <- ports[ports$COUNTRY=="IC",]
   buffer <- gBuffer(study_area, width = 15)
   
-  coastline_iceland <- gIntersection(buffer, coastline10) 
+  coastline_study_area <- gIntersection(buffer, coastline10) 
   hex_points <- spsample(buffer, type = "hexagonal", cellsize = 30)
   hexagons <- sapply(1:nrow(hex_points@coords), function(x) HexPoints2SpatialPolygons(hex_points[x],dx = 30)) 
   hexagons <- list(hexagons, makeUniqueIDs = TRUE) %>% 
@@ -49,7 +49,7 @@ generating_data <- function(){
     as.vector(t(rm))
   }
   
-  coast_hexagons <- hexagons[sapply(1:nrow(hex_points@coords), function(x) gIntersects(coastline_iceland, hexagons[x]))==TRUE]
+  coast_hexagons <- hexagons[sapply(1:nrow(hex_points@coords), function(x) gIntersects(coastline_study_area, hexagons[x]))==TRUE]
   coast_data <- t(sapply(1:length(coast_hexagons@polygons), function(x) make_raster(coast_hexagons[x])))
   
   y <- as.matrix(sapply(1:length(coast_hexagons@polygons), function(x) ifelse((gIntersects(ports_study_area,coast_hexagons[x])), 1, 0)))
@@ -57,7 +57,7 @@ generating_data <- function(){
   coast_data_final <- cbind(ID, coast_data, y)
   
   ## Generates the inland dataset 
-  inland_hexagons <- hexagons[sapply(1:nrow(hex_points@coords), function(x) gIntersects(coastline_iceland,hexagons[x]))==FALSE]
+  inland_hexagons <- hexagons[sapply(1:nrow(hex_points@coords), function(x) gIntersects(coastline_study_area,hexagons[x]))==FALSE]
   inland_data <- sapply(1:length(inland_hexagons@polygons), function(x) rep(1, dim(coast_data)[2]))
   inland_data <- t(inland_data)
   y <- as.matrix(rep(0, length(inland_hexagons@polygons)))
