@@ -22,11 +22,15 @@ ports <- spTransform(ports, newcrs)
 
 tic()
   
-study_area <- countries10[countries10$CONTINENT=="North America",]
+study_area <- countries10[countries10$CONTINENT=="Africa",]
+#study_area <- countries10[countries10$ADMIN=="Cuba",]
+
 ports_study_area <- ports
 buffer <- gBuffer(study_area, width = 15)
 coastline_study_area <- gIntersection(buffer, coastline10) 
-  
+
+#Note: dx denotes the spacing of two horizontaly adjacent points
+
 hex_points <- spsample(buffer, type = "hexagonal", cellsize = 30)
 hexagons <- sapply(1:nrow(hex_points@coords), function(x) HexPoints2SpatialPolygons(hex_points[x],dx = 30)) 
 hexagons <- list(hexagons, makeUniqueIDs = TRUE) %>% 
@@ -37,15 +41,28 @@ hexagons <- list(hexagons, makeUniqueIDs = TRUE) %>%
 make_raster <- function(x){
   intersection <- gIntersection(study_area, x)
   overlap <- bind(x, intersection)
-  rr <- raster(extent(overlap), res=1)
+  rr <- raster(extent(overlap), res=1.5)
   rr <- rasterize(overlap, rr)
   rm <- raster::as.matrix(rr)
   rm[is.na(rm)] = 0
   as.vector(t(rm))
 }
-  
-coast_hexagons <- hexagons[sapply(1:nrow(hex_points@coords), function(x) gIntersects(coastline_study_area, hexagons[x]))==TRUE]
-coast_data <- t(sapply(1:length(coast_hexagons@polygons), function(x) make_raster(coast_hexagons[x])))
+
+coast_log <- rep(NA, length(hex_points@coords))
+for (i in 1:nrow(hex_points@coords)){
+  coast_log[i] <- gIntersects(coastline_study_area, hexagons[i])==TRUE
+  print(c(i/nrow(hex_points@coords), i))
+}
+coast_hexagons <- hexagons[coast_log]
+# coast_hexagons <- hexagons[sapply(1:nrow(hex_points@coords), function(x) gIntersects(coastline_study_area, hexagons[x]))==TRUE]
+
+coast_data <- matrix(nrow=length(coast_hexagons@polygons), ncol = 460)
+for (i in 1:length(coast_hexagons@polygons)){
+  coast_data[i,] <- make_raster(coast_hexagons[i])
+  print(c(i/length(coast_hexagons@polygons), i))
+}
+
+#coast_data <- t(sapply(1:length(coast_hexagons@polygons), function(x) make_raster(coast_hexagons[x])))
   
 y <- as.matrix(sapply(1:length(coast_hexagons@polygons), function(x) ifelse((gIntersects(ports_study_area,coast_hexagons[x])), 1, 0)))
 ID <- sapply(coast_hexagons@polygons, function(x) x@ID)
@@ -61,15 +78,24 @@ inland_data_final <- cbind(ID, inland_data, y)
   
 ## Joining the inland and coast line data
 df <- rbind(coast_data_final, inland_data_final)
-data <- data.frame(df) %>% dplyr::select(V1052, everything()) %>% rename(y = V1052) 
+data <- data.frame(df) %>% dplyr::select(V462, everything()) %>% rename(y = V462) 
 row.names(data) <- data$ID
 data <- subset(data, select = -ID)
   
-dataset <<- data
-hexagons <<- hexagons
-study_area <<- study_area
-ports_study_area <<- ports_study_area
-  
+dataset_samerica <<- data
+hexagons_samerica <<- hexagons
+study_area_samerica <<- study_area
+ports_study_nrea_samerica <<- ports_study_area
+
 toc()
+
+
+
+#save.image(file = "output/my_work_space.RData")
+
+
+
+
+
 
 
