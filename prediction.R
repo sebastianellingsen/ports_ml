@@ -17,20 +17,17 @@ p_load(ranger, Metrics, broom, rsample, tidyverse)
 ######################
 ## Model evaluation ##
 ######################
-library(tictoc)
-tic()
-generating_data()
-toc()
-save(dataset, file="dataset.Rda")
+
+#dataset = rbind(dataset_samerica, dataset_namerica, dataset_africa, dataset_asia, dataset_europe)
+
+#save(dataset, file="dataset.Rda")
 load("dataset.Rda")
 
-
 # Generate final dataset used to predict
-data <- dataset[which(dataset$X1!="inland"),]
-data$sample <- rbinom(n=nrow(data),prob=.15,size=1)
+data <- dataset[which(!is.na(dataset$V2)),]
+data$sample <- rbinom(n=nrow(data),prob=972/(nrow(data)-972), size=1)
 data <- data %>% filter(y == 1 | (sample == 1 & y!=1))
-
-
+data$y <- as.numeric(data$y)-1
 
 ## Splitting the data to training, testing  
 data_split <- initial_split(data, 0.75)
@@ -44,47 +41,47 @@ cv_data <- cv_split %>%
 
 ## Fitting the model
 cv_models <- cv_data %>% 
-  mutate(forest_model = map(train, ~ranger(formula= y~., data=.x, num.trees = 100, mtry = 10)))
+  mutate(forest_model = map(train, ~ranger(formula= y~., data=.x, num.trees = 200, mtry = 10)))
 
 cv_prep <- cv_models %>% 
   mutate(validate_actual = map(validate, ~.x$y)) %>% 
   mutate(predicted = map2(forest_model, validate, ~predict(.x,.y)$predictions)) 
 
 ## Validating the fit of the model
-cv_eval <- cv_prep %>% mutate(y_pred = map(cv_prep$predicted, ~ifelse(.x>0.3, 1, 0))) 
+#dta$prediction <- ifelse(pred>=0.5,1,0)
+confusion_matrix <- map2(cv_prep$validate_actual, cv_prep$predicted, ~table(.x,.y))
 
-cv_eval <-  cv_eval %>% 
+
+cv_eval  %>% 
   mutate(error = map2_dbl(validate_actual, y_pred, ~mae(.x,.y))) %>% 
   mutate(precision = map2_dbl(validate_actual, y_pred, ~precision(.x,.y))) %>% 
   mutate(accuracy = map2_dbl(validate_actual, y_pred, ~accuracy(.x,.y)))
 
-confusion_matrix <- map2(cv_eval$validate_actual, cv_eval$y_pred, ~table(.x,.y))
   
 er <- map(cv_eval$error, ~mean(.x)) %>% unlist() %>% sort(decreasing=TRUE)
 plot(er)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 # ROC curves
 library(ROCR)
-
-data(ROCR.simple)
-pred <- prediction( ROCR.simple$predictions, ROCR.simple$labels)
-perf <- performance(pred,"tpr","fpr")
-plot(perf)
-
-pred <- prediction(cv_eval$predicted[1], cv_eval$y_pred[1])
-perf <- performance(pred,"tpr","fpr")
-
-
-
-
-# Make many roc curves for each model
-
 
 
 
 
 ## Fitting the full model to the training data
-model <- ranger(formula= y~., data=training_data, num.trees = 1000, mtry = 300)
+model <- ranger(formula= y~., data=training_data, num.trees = 200, mtry = 10)
 
 prediction <- predict(model, testing_data)$predictions
 
@@ -143,7 +140,7 @@ x_rf3 <- x_rf3[x_rf3<=1]
 ggplot() + 
   geom_line(aes(x_rf, y_rf), color="Blue") + 
   #geom_line(aes(x_rf1, y_rf1), color="Red") +
-  geom_line(aes(x_rf2, y_rf2), color="Green") +
+  geom_line(aes(x_rf2, y_rf2), color="Red") +
   geom_line(aes(x_rf3, y_rf3), color="Orange") +
   xlab("False positive rate") + ylab("True positive rate") + ggtitle("Receiver operating characteristic") +
   geom_segment(aes(x = 0, y = 0, xend = 0.98, yend = 1, colour = "segment"),alpha=0.3, linetype = 2) +
@@ -180,15 +177,25 @@ tm_shape(sps_df) +
   tm_shape(ports_iceland) + tm_dots(size=0.1) 
 
 
+hexagons <- gIntersection(hexagons, study_area, byid = TRUE)
+row.names(dataset) <- paste(row.names(dataset), " 188", sep="")
+cut_data <- dataset[row.names(dataset)  %in%  sapply(hexagons@polygons, function(x) x@ID),]
+sps_df <- SpatialPolygonsDataFrame(hexagons, cut_data, match.ID = TRUE)
+
+tm_shape(sps_df) +
+  tm_fill(col="y") + tm_layout(frame=FALSE) +
+  tm_shape(hexagons) +
+  tm_borders(col = "white") 
+
++
+  tm_shape(ports_iceland) +
+  tm_dots(shape = 1, size=0.1)  
 
 
 
 
-# try removing areas that are not along the coast, sample size low since I'm doing
-# cross validation. Gjor dette i datadelen, ved a tydelig markere de som ikke skal 
-# vaere der.
-# make a receiver operating characeristic for each model.
-
+## To do:
+## lag hele datasettet, make roc curves for fold, 
 
 
 
