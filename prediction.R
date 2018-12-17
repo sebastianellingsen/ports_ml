@@ -27,7 +27,7 @@ load("dataset.Rda")
 data <- dataset[which(!is.na(dataset$V2)),]
 data$sample <- rbinom(n=nrow(data),prob=972/(nrow(data)-972), size=1)
 data <- data %>% filter(y == 1 | (sample == 1 & y!=1))
-data$y <- as.numeric(data$y)-1
+#data$y <- as.numeric(data$y)-1
 
 ## Splitting the data to training, testing  
 data_split <- initial_split(data, 0.75)
@@ -41,16 +41,16 @@ cv_data <- cv_split %>%
 
 ## Fitting the model
 cv_models <- cv_data %>% 
-  mutate(forest_model = map(train, ~ranger(formula= y~., data=.x, num.trees = 200, mtry = 10)))
+  mutate(forest_model = map(train, ~ranger(formula= y~., data=.x, num.trees = 2, mtry = 10)))
 
 cv_prep <- cv_models %>% 
   mutate(validate_actual = map(validate, ~.x$y)) %>% 
   mutate(predicted = map2(forest_model, validate, ~predict(.x,.y)$predictions)) 
 
 ## Validating the fit of the model
-#dta$prediction <- ifelse(pred>=0.5,1,0)
+#dta$prediction <- ifelse(pred>=0.3,1,0)
 confusion_matrix <- map2(cv_prep$validate_actual, cv_prep$predicted, ~table(.x,.y))
-
+Reduce(`+`, confusion_matrix)
 
 cv_eval  %>% 
   mutate(error = map2_dbl(validate_actual, y_pred, ~mae(.x,.y))) %>% 
@@ -61,9 +61,10 @@ cv_eval  %>%
 er <- map(cv_eval$error, ~mean(.x)) %>% unlist() %>% sort(decreasing=TRUE)
 plot(er)
 
-
-
-
+## Testing data
+model_testing <- ranger(formula= y~., data=training_data, num.trees = 2, mtry = 10)
+prediction <- predict(model_testing, testing_data)$predictions
+confusion_matrix <-table(prediction, testing_data$y)
 
 
 
@@ -81,7 +82,7 @@ library(ROCR)
 
 
 ## Fitting the full model to the training data
-model <- ranger(formula= y~., data=training_data, num.trees = 200, mtry = 10)
+model <- ranger(formula= y~., data=training_data, num.trees = 30, mtry = 10)
 
 prediction <- predict(model, testing_data)$predictions
 
@@ -98,7 +99,7 @@ x_rf <- x_rf[x_rf<=1]
 
 
 
-model <- ranger(formula= y~., data=training_data, num.trees = 10, mtry = 300)
+model <- ranger(formula= y~., data=training_data, num.trees = 2, mtry = 10)
 
 prediction <- predict(model, testing_data)$predictions
 
@@ -140,8 +141,8 @@ x_rf3 <- x_rf3[x_rf3<=1]
 ggplot() + 
   geom_line(aes(x_rf, y_rf), color="Blue") + 
   #geom_line(aes(x_rf1, y_rf1), color="Red") +
-  geom_line(aes(x_rf2, y_rf2), color="Red") +
-  geom_line(aes(x_rf3, y_rf3), color="Orange") +
+  #geom_line(aes(x_rf2, y_rf2), color="Red") +
+  #geom_line(aes(x_rf3, y_rf3), color="Orange") +
   xlab("False positive rate") + ylab("True positive rate") + ggtitle("Receiver operating characteristic") +
   geom_segment(aes(x = 0, y = 0, xend = 0.98, yend = 1, colour = "segment"),alpha=0.3, linetype = 2) +
   scale_x_continuous(limits = c(0, 1)) + theme_classic() 
@@ -195,7 +196,7 @@ tm_shape(sps_df) +
 
 
 ## To do:
-## lag hele datasettet, make roc curves for fold, 
+## combine the predicted port data with the aggregated raster
 
 
 
