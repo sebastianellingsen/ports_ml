@@ -1,4 +1,5 @@
 ## Loading packages and datasets 
+set.seed(11042018)
 
 if (!require(pacman)) install.packages("pacman")
 p_load(tidyverse, sf, raster, tmap, sp, rgdal, rnaturalearth, rgeos, viridis, tictoc)
@@ -22,8 +23,9 @@ ports <- spTransform(ports, newcrs)
 
 tic()
   
-study_area <- countries10[countries10$CONTINENT=="Africa",]
-#study_area <- countries10[countries10$ADMIN=="Cuba",]
+#study_area <- countries10[countries10$CONTINENT=="Asia",]
+#study_area <- countries10[countries10$ADMIN=="Sweden",]
+study_area <- countries10
 
 ports_study_area <- ports
 buffer <- gBuffer(study_area, width = 15)
@@ -82,16 +84,37 @@ data <- data.frame(df) %>% dplyr::select(V462, everything()) %>% rename(y = V462
 row.names(data) <- data$ID
 data <- subset(data, select = -ID)
   
-dataset_samerica <<- data
-hexagons_samerica <<- hexagons
-study_area_samerica <<- study_area
-ports_study_nrea_samerica <<- ports_study_area
+dataset_iceland <<- data
+hexagons_iceland <<- hexagons
+study_area_iceland <<- study_area
+ports_study_area_iceland <<- ports_study_area
 
 toc()
 
-
-
 #save.image(file = "output/my_work_space.RData")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
