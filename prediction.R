@@ -23,11 +23,17 @@ p_load(ranger, Metrics, broom, rsample, tidyverse)
 #save(dataset, file="dataset.Rda")
 load("dataset.Rda")
 
+## use the sample function in R
 # Generate final dataset used to predict
-data <- dataset[which(!is.na(dataset$V2)),]
-data$sample <- rbinom(n=nrow(data),prob=972/(nrow(data)-972), size=1)
-data <- data %>% filter(y == 1 | (sample == 1 & y!=1))
-#data$y <- as.numeric(data$y)-1
+data <- dataset_samerica[which(!is.na(dataset$V2)),]
+data$sample <- rbinom(n=nrow(data),prob=1/20, size=1)
+#data <- data %>% filter(y == 1 | (sample == 1 & y!=1)) %>% dplyr::select(-sample)
+data <- data %>% filter(y == 1 | (sample == 1)) %>% dplyr::select(-sample)
+data$y <- as.numeric(data$y)-1
+
+
+
+
 
 ## Splitting the data to training, testing  
 data_split <- initial_split(data, 0.75)
