@@ -19,21 +19,18 @@ p_load(ranger, Metrics, broom, rsample, tidyverse)
 ######################
 
 #dataset = rbind(dataset_samerica, dataset_namerica, dataset_africa, dataset_asia, dataset_europe)
-
+set.seed(11042018)
+ 
 #save(dataset, file="dataset.Rda")
 load("dataset.Rda")
 
-## use the sample function in R
-# Generate final dataset used to predict
+# Generate final balanced dataset 
 data <- dataset_samerica[which(!is.na(dataset$V2)),]
-data$sample <- rbinom(n=nrow(data),prob=1/20, size=1)
-#data <- data %>% filter(y == 1 | (sample == 1 & y!=1)) %>% dplyr::select(-sample)
-data <- data %>% filter(y == 1 | (sample == 1)) %>% dplyr::select(-sample)
+dataset_ports <- dataset %>% filter(y==1)
+dataset_noports <- dataset %>% filter(y==0)
+subsample_dataset_noports = sample_n(dataset_noports, size = nrow(dataset_ports))
+dataset = bind_rows(subsample_dataset_noports, dataset_ports)
 data$y <- as.numeric(data$y)-1
-
-
-
-
 
 ## Splitting the data to training, testing  
 data_split <- initial_split(data, 0.75)
