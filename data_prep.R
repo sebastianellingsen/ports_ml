@@ -17,14 +17,33 @@ coastline10 <- ne_download(scale = 10, type = 'coastline', category = 'physical'
 countries10 <- ne_download(scale = 10, type = 'countries', category = 'cultural')
 
 # Elevation data
-elev <- raster("data/ETOPO1_Ice_g_geotiff.tif")
+elev <- raster("ETOPO1_Ice_g_geotiff.tif")
 crs(elev) <- crs(countries10)
+
 elev <- projectRaster(elev, crs = newcrs)
-
-
 countries10 <- spTransform(countries10, newcrs)
 coastline10 <- spTransform(coastline10, newcrs)
 ports <- spTransform(ports, newcrs)
+
+
+
+
+# Test area
+study_area <- countries10[countries10$ADMIN=="Iceland",]
+buffer <- gBuffer(study_area, width = 30)
+elev_cropped = crop(elev, buffer)
+elev_masked = mask(elev_cropped, buffer)
+
+# change values of a raster
+elev_masked[elev_masked < -1] <- 0
+
+tm_shape(elev_masked) + tm_raster(n=100) + tm_shape(study_area) + tm_fill(alpha=0.5)
+
+
+
+study_area <- spTransform(study_area, newcrs)
+
+
 
 
 tic()
