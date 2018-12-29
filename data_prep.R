@@ -27,7 +27,6 @@ ports <- spTransform(ports, newcrs)
 
 
 
-
 # Test area
 study_area <- countries10[countries10$ADMIN=="Iceland",]
 buffer <- gBuffer(study_area, width = 30)
@@ -36,13 +35,20 @@ elev_masked = mask(elev_cropped, buffer)
 
 # change values of a raster
 elev_masked[elev_masked < -1] <- 0
+tm_shape(elev_masked) + tm_raster(n=100) + tm_shape(study_area) + tm_fill(alpha=0.5) +
+  tm_shape(coastline_study_area) + tm_lines()
 
-tm_shape(elev_masked) + tm_raster(n=100) + tm_shape(study_area) + tm_fill(alpha=0.5)
+
+
+tm_shape(elev_masked) + tm_raster(n=100) + tm_shape(study_area) + tm_fill(alpha=0.5) +
+  tm_shape(coastline_study_area) + tm_lines() +tm_shape(hexagons) + tm_borders(alpha=0.5)
 
 
 
-study_area <- spTransform(study_area, newcrs)
-
+srtm_cropped = crop(elev_masked, coast_hexagons[35])
+srtm_masked = mask(srtm_cropped, coast_hexagons[35])
+tm_shape(srtm_masked) + tm_raster(n=100)
+#study_area <- spTransform(study_area, newcrs)
 
 
 
@@ -63,29 +69,6 @@ hexagons <- sapply(1:nrow(hex_points@coords), function(x) HexPoints2SpatialPolyg
 hexagons <- list(hexagons, makeUniqueIDs = TRUE) %>% 
   flatten() %>% 
   do.call(rbind, .)
-
-
-# clue to reproject the maps at a later point
-hexagons[1]
-elev_cropped = crop(elev, buffer)
-elev_masked = mask(elev_cropped, buffer)
-
-
-library(tmap)
-library(viridis)
-
-tm_shape(hill) + tm_raster(n=100)
-
-
-
-
-
-
-
-
-
-
-
 
 
 ## Generates the coast line dataset 
