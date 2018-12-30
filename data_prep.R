@@ -25,37 +25,12 @@ countries10 <- spTransform(countries10, newcrs)
 coastline10 <- spTransform(coastline10, newcrs)
 ports <- spTransform(ports, newcrs)
 
-
-
-# Test area
-study_area <- countries10[countries10$ADMIN=="Iceland",]
-buffer <- gBuffer(study_area, width = 30)
-elev_cropped = crop(elev, buffer)
-elev_masked = mask(elev_cropped, buffer)
-
-# change values of a raster
-elev_masked[elev_masked < -1] <- 0
-tm_shape(elev_masked) + tm_raster(n=100) + tm_shape(study_area) + tm_fill(alpha=0.5) +
-  tm_shape(coastline_study_area) + tm_lines()
-
-
-
-tm_shape(elev_masked) + tm_raster(n=100) + tm_shape(study_area) + tm_fill(alpha=0.5) +
-  tm_shape(coastline_study_area) + tm_lines() +tm_shape(hexagons) + tm_borders(alpha=0.5)
-
-
-
-srtm_cropped = crop(elev_masked, coast_hexagons[35])
-srtm_masked = mask(srtm_cropped, coast_hexagons[35])
-tm_shape(srtm_masked) + tm_raster(n=100)
-#study_area <- spTransform(study_area, newcrs)
-
-
+continents <- c("Europe", "Asia", "South America", "North America", "Africa", "Australia")
 
 tic()
   
-#study_area <- countries10[countries10$CONTINENT=="Asia",]
-study_area <- countries10[countries10$ADMIN=="Iceland",]
+study_area <- countries10[countries10$CONTINENT=="Europe",]
+#study_area <- countries10[countries10$ADMIN=="Iceland",]
 #study_area <- countries10
 
 ports_study_area <- ports
@@ -70,19 +45,13 @@ hexagons <- list(hexagons, makeUniqueIDs = TRUE) %>%
   flatten() %>% 
   do.call(rbind, .)
 
-
 ## Generates the coast line dataset 
 make_raster <- function(x){
-  intersection <- gIntersection(study_area, x)
-  overlap <- bind(x, intersection)
-  rr <- raster(extent(overlap), res=1.5)
-  rr <- rasterize(overlap, rr)
-  rm <- raster::as.matrix(rr)
-  rm[is.na(rm)] = 0
-  as.vector(t(rm))
+  hexagon_cropped = crop(elev, x)
+  hexagon_masked = values(mask(hexagon_cropped, x))
 }
 
-coast_log <- rep(NA, length(hex_points@coords))
+coast_log <- rep(NA, nrow(hex_points@coords))
 for (i in 1:nrow(hex_points@coords)){
   coast_log[i] <- gIntersects(coastline_study_area, hexagons[i])==TRUE
   print(c(i/nrow(hex_points@coords), i))
@@ -90,9 +59,10 @@ for (i in 1:nrow(hex_points@coords)){
 coast_hexagons <- hexagons[coast_log]
 # coast_hexagons <- hexagons[sapply(1:nrow(hex_points@coords), function(x) gIntersects(coastline_study_area, hexagons[x]))==TRUE]
 
-coast_data <- matrix(nrow=length(coast_hexagons@polygons), ncol = 460)
+# only keep the shortest distance
+coast_data <- matrix(nrow=length(coast_hexagons@polygons), ncol = 288)
 for (i in 1:length(coast_hexagons@polygons)){
-  coast_data[i,] <- make_raster(coast_hexagons[i])
+  coast_data[i,] <- make_raster(coast_hexagons[i])[1:288]
   print(c(i/length(coast_hexagons@polygons), i))
 }
 
@@ -100,19 +70,23 @@ for (i in 1:length(coast_hexagons@polygons)){
   
 y <- as.matrix(sapply(1:length(coast_hexagons@polygons), function(x) ifelse((gIntersects(ports_study_area,coast_hexagons[x])), 1, 0)))
 ID <- sapply(coast_hexagons@polygons, function(x) x@ID)
-coast_data_final <- cbind(ID, coast_data, y)
+coast_data_final <- cbind(ID, y, coast_data)
   
+
 ## Generates the inland dataset 
-inland_hexagons <- hexagons[sapply(1:nrow(hex_points@coords), function(x) gIntersects(coastline_study_area,hexagons[x]))==FALSE]
+# her kan man bruke info fra koden over
+inland_hexagons <- hexagons[!coast_log]
+#inland_hexagons <- hexagons[sapply(1:nrow(hex_points@coords), function(x) gIntersects(coastline_study_area,hexagons[x]))==FALSE]
 inland_data <- sapply(1:length(inland_hexagons@polygons), function(x) rep(1, dim(coast_data)[2]))
 inland_data <- t(inland_data)
 y <- as.matrix(rep(0, length(inland_hexagons@polygons)))
 ID <- sapply(inland_hexagons@polygons, function(x) x@ID)
-inland_data_final <- cbind(ID, inland_data, y)
+inland_data_final <- cbind(ID, y, inland_data)
   
 ## Joining the inland and coast line data
 df <- rbind(coast_data_final, inland_data_final)
-data <- data.frame(df) %>% dplyr::select(V462, everything()) %>% rename(y = V462) 
+data <- data.frame(df) %>% rename(y = V2) 
+#%>% dplyr::select(V462, everything()) 
 row.names(data) <- data$ID
 data <- subset(data, select = -ID)
   
@@ -124,9 +98,6 @@ ports_study_area_iceland <<- ports_study_area
 toc()
 
 #save.image(file = "output/my_work_space.RData")
-
-
-
 
 
 
