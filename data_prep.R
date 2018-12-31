@@ -29,7 +29,7 @@ continents <- c("Europe", "Asia", "South America", "North America", "Africa", "A
 
 tic()
   
-study_area <- countries10[countries10$CONTINENT=="Europe",]
+study_area <- countries10[countries10$CONTINENT!="Antarctica",]
 #study_area <- countries10[countries10$ADMIN=="Iceland",]
 #study_area <- countries10
 
