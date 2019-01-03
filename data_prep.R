@@ -25,8 +25,6 @@ countries10 <- spTransform(countries10, newcrs)
 coastline10 <- spTransform(coastline10, newcrs)
 ports <- spTransform(ports, newcrs)
 
-continents <- c("Europe", "Asia", "South America", "North America", "Africa", "Australia")
-
 tic()
   
 study_area <- countries10[countries10$CONTINENT!="Antarctica",]
@@ -90,33 +88,9 @@ data <- data.frame(df) %>% rename(y = V2)
 row.names(data) <- data$ID
 data <- subset(data, select = -ID)
   
-dataset_iceland <<- data
-hexagons_iceland <<- hexagons
-study_area_iceland <<- study_area
-ports_study_area_iceland <<- ports_study_area
-
 toc()
 
 #save.image(file = "output/my_work_space1.RData")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
