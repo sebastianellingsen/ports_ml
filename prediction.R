@@ -29,12 +29,13 @@ dataset <- data %>%
 dataset[is.na(dataset)] <- 0
 dataset$y <- as.factor(dataset$y)
 
+## Generate data for prediction
 dataset_ports <- dataset %>% filter(y==1)
 dataset_noports <- dataset %>% filter(y==0)
 subsample_dataset_noports = sample_n(dataset_noports, size = nrow(dataset_ports))
 dataset = bind_rows(subsample_dataset_noports, dataset_ports)
 #data$y <- as.numeric(data$y)-1
-dataset %>% as.data.frame %>% stargazer(type="text")
+dataset %>% mutate(y=as.numeric(y)) %>% select(y) %>%  as.data.frame %>% stargazer(type="text")
 
 ## Splitting the data to training, testing  
 data_split <- initial_split(dataset, 0.75)
@@ -42,13 +43,13 @@ training_data <- training(data_split)
 testing_data <- testing(data_split)
 
 ## Cross validation folds
-cv_split <- vfold_cv(training_data, v = 10)
+cv_split <- vfold_cv(training_data, v = 5)
 cv_data <- cv_split %>% 
   mutate(train = map(splits, ~training(.x)), validate = map(splits, ~testing(.x)))
 
 ## Fitting the model
 cv_models <- cv_data %>% 
-  mutate(forest_model = map(train, ~ranger(formula= y~., data=.x, num.trees = 50, mtry = 10)))
+  mutate(forest_model = map(train, ~ranger(formula= y~., data=.x, num.trees = 1000, mtry = 250)))
 
 cv_prep <- cv_models %>% 
   mutate(validate_actual = map(validate, ~.x$y)) %>% 
@@ -83,7 +84,7 @@ library(ROCR)
 training_data$y <- as.numeric(training_data$y)
 
 ## Fitting the full model to the training data
-model <- ranger(formula= y~., data=training_data, num.trees = 1000, mtry = 4)
+model <- ranger(formula= y~., data=training_data, num.trees = 1000, mtry = 250)
 
 prediction <- predict(model, testing_data)$predictions
 
@@ -95,7 +96,7 @@ plot(perf)
 ## The confusion matrix
 training_data$y <- as.factor(training_data$y)
 
-model <- ranger(formula= y~., data=training_data, num.trees = 1000, mtry = 4)
+model <- ranger(formula= y~., data=training_data, num.trees = 1000, mtry = 250)
 prediction <- predict(model, testing_data)$predictions
 
 confusion_matrix <- table(prediction, testing_data$y)
