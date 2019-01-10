@@ -1,6 +1,10 @@
 if (!require(pacman)) install.packages("pacman")
 p_load(tidyverse, sf, raster, tmap, sp, rgdal, rgeos, viridis, ranger)
 
+## Setting theme
+theme_set(theme_bw() + theme(panel.grid.minor = element_line(colour = "white", size = 0.5),
+                             panel.grid.major = element_line(colour = "white", size = 0.2)))
+
 
 ###########################
 ## Joining the dataframe ##
@@ -8,7 +12,7 @@ p_load(tidyverse, sf, raster, tmap, sp, rgdal, rgeos, viridis, ranger)
 #hexagons_full <- gIntersection(hexagons, study_area, byid = TRUE)
 
 
-model <- ranger(formula= as.numeric(y)~., data=dataset, num.trees = 500, mtry = 4)
+model <- ranger(formula= as.numeric(y)~., data=training_data, num.trees = 1000, mtry = 4)
 prediction <- predict(model, dataset)$predictions
 
 dataset_final <- dataset %>%  dplyr::select(y) %>% mutate(y_pred=prediction)
@@ -34,50 +38,90 @@ plot_country <- function(x){
   dataset_country_final <<- sps_df[row.names(sps_df) %in% sapply(dataset_country@polygons, function(x) x@ID), ]
 }
 
+plot_country("Sweden")
+
 # Plotting the predicted ports
-tm_shape(dataset_country_final) +  tm_fill(col="y_pred", palette=plasma(256)) 
-+
-  tm_shape(ports_country) + tm_dots(size=0.3) 
+tm_shape(dataset_country_final) +  tm_fill(col="y") 
+
+
+dataset_country_final@data$pred <- ifelse(dataset_country_final@data$y_pred>=1.6, 1, 0)
+
+
+
+
+  tm_shape(ports_country) + tm_dots(size=0.3)  palette=plasma(256)
 
 
 
 
 
-n_harbors <- c()
-# use sapply here:
-for (i in study_area@data$ADMIN){
-  study_area_country <- countries10[countries10$ADMIN==i,]
+
+
+countries_list <- countries10[countries10$TYPE=="Sovereign country",]
+
+n_harbors <- rep(0, nrow(countries_list@data))
+harbors <- rep(0, nrow(countries_list@data))
+
+for (i in countries_list@data$SOVEREIGNT){
+  study_area_country <- countries_list[countries_list$SOVEREIGNT==i,]
   dataset_country <- gIntersection(sps_df, study_area_country, byid = TRUE)
   row.names(dataset_country) <- gsub("\\s.*", "", sapply(dataset_country@polygons, function(x) x@ID))
   sps_df_temp <- sps_df[row.names(sps_df) %in% sapply(dataset_country@polygons, function(x) x@ID), ]
   
-  n_harbors[which(study_area@data$ADMIN==i)] <- sum(ifelse(sps_df_temp@data$y_pred>1.5,1,0))
+  n_harbors[which(countries_list@data$SOVEREIGNT==i)] <- sum(ifelse(sps_df_temp@data$y_pred>1.6,1,0))
+  harbors[which(countries_list@data$SOVEREIGNT==i)] <- sum(as.numeric(sps_df_temp@data$y)-1)
   
-  print(i)
+  print(c(i, n_harbors[which(countries_list@data$SOVEREIGNT==i)], harbors[which(countries_list@data$SOVEREIGNT==i)]))
 }
 
-countries10@data$n_harbors <- n_harbors
 
 
-# Plotting the results
-ggplot(data=countries10@data, aes(x=log(n_harbors), y=log(GDP_MD_EST))) + geom_point() +
-  geom_smooth(method = "lm", se = FALSE)
+countries_list@data$n_harbors <- n_harbors
+countries_list@data$harbors <- harbors
 
 
-countries10@data %>% filter(n_harbors>0) %>% ggplot(aes(x=log(n_harbors), y=log(as.numeric(GDP_MD_EST)))) + geom_point() +
-  geom_smooth(method = "lm", se = TRUE)
+## Plotting the results: Reduced form relationship, shape=1
 
+# Basic relationship
+countries_list@data %>% filter(n_harbors>0) %>% 
+  group_by(n_harbors) %>%
+  summarize(gdp=mean(GDP_MD_EST), obs=n()) %>% 
+  ggplot(aes(x=log(n_harbors), y=log(as.numeric(gdp)), size=obs)) + geom_point(alpha=0.3) +
+  geom_smooth(method = "lm", se = TRUE, color="Black", size=0.5) + 
+  xlab("log(Harbors)") + labs(caption = "") + ylab("log(GDP per capita)") +
+  theme(legend.position="none")
 
-# add actual harbors as well.
+# By continent
+countries10@data %>% filter(n_harbors>0) %>% 
+  group_by(n_harbors) %>%
+  mutate(gdp=(GDP_MD_EST/as.numeric(POP_EST))) %>%
+  #summarize(gdp=mean(GDP_MD_EST/as.numeric(POP_EST)), obs=n()) %>% 
+  ggplot(aes(x=log(n_harbors), y=log(as.numeric(gdp)),color=CONTINENT)) + geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color="Black") + 
+  xlab("log(Harbors)") + labs(color = "Continents") + ylab("log(GDP per capita)") 
 
+# With labels
+countries10@data %>% filter(n_harbors>0) %>% 
+  group_by(n_harbors) %>%
+  mutate(gdp=(GDP_MD_EST/as.numeric(POP_EST))) %>%
+  filter(CONTINENT!="Antarctica", CONTINENT!="Seven seas (open ocean)") %>% 
+  #summarize(gdp=mean(GDP_MD_EST/as.numeric(POP_EST)), obs=n()) %>% 
+  ggplot(aes(x=log(n_harbors), y=log(as.numeric(gdp)))) + geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color="Black") + 
+  xlab("log(Harbors)") + labs(caption = "") + ylab("log(GDP per capita)") +
+  geom_text(aes(label=SOVEREIGNT),hjust=0, vjust=0)  +
+  theme(legend.position="none")
 
+# First stage
+countries_list@data %>% filter(n_harbors>0) %>% 
+  group_by(harbors) %>%
+  summarize(n_harbors=mean(n_harbors), obs=n()) %>% 
+  ggplot(aes(x=log(harbors), y=log(n_harbors))) + geom_point(alpha=0.2, size=4, color="Blue") +
+  geom_smooth(method = "lm", se = FALSE, color="Black", size=0.5) + 
+  xlab("Harbors") + labs(caption = "") + ylab("Predicted harbors") +
+  theme(legend.position="none")
 
-
-
-
-
-
-
+# To do: first stage, check the countries, set up the slides
 
 
 
@@ -180,18 +224,6 @@ ggplot(data=final@data, aes(x=log(n_harbors), y=log(gdp_cap))) + geom_point() +
 
 # To do: automate, remove weird areas, normalize by population or area?
 
-
-#gIntersects(sps_df[1,], k)
-sum(sapply(1:nrow(sps_df), function(x) gIntersects(sps_df[x,], k)))
-
-
-
-#Lop pver hvert land, tell hvor mange som overlapper der. Skal vaere raskere enn den andre metoden.
-
-
-
-
-k <- study_area_samerica[study_area_samerica$ADMIN=="Bolivia",]
 
 
 
