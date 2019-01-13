@@ -78,53 +78,50 @@ for (i in countries_list@data$SOVEREIGNT){
 
 countries_list@data$n_harbors <- n_harbors
 countries_list@data$harbors <- harbors
+countries_list@data$c_area <- area(countries_list)
 
 
 ## Plotting the results: Reduced form relationship, shape=1
 
-# Basic relationship
-countries_list@data %>% filter(n_harbors>0) %>% 
-  group_by(n_harbors) %>%
-  summarize(gdp=mean(GDP_MD_EST), obs=n()) %>% 
-  ggplot(aes(x=log(n_harbors), y=log(as.numeric(gdp)), size=obs)) + geom_point(alpha=0.3) +
-  geom_smooth(method = "lm", se = TRUE, color="Black", size=0.5) + 
-  xlab("log(Harbors)") + labs(caption = "") + ylab("log(GDP per capita)") +
-  theme(legend.position="none")
+ggplotRegression <- function (fit) {
+  
+  require(ggplot2)
+  
+  ggplot(fit$model, aes_string(x = names(fit$model)[2], y = names(fit$model)[1])) + 
+    geom_point(alpha=0.3, color="Blue", size=3) +
+    stat_smooth(method = "lm", col = "black", se=FALSE) +
+    labs(title = paste("Adj R2 = ",signif(summary(fit)$adj.r.squared, 5),
+                       "Intercept =",signif(fit$coef[[1]],5 ),
+                       " Slope =",signif(fit$coef[[2]], 5),
+                       " Se. =",signif(summary(fit)$coef[2,2], 5)))
+}
 
-# By continent
-countries10@data %>% filter(n_harbors>0) %>% 
-  group_by(n_harbors) %>%
-  mutate(gdp=(GDP_MD_EST/as.numeric(POP_EST))) %>%
-  #summarize(gdp=mean(GDP_MD_EST/as.numeric(POP_EST)), obs=n()) %>% 
-  ggplot(aes(x=log(n_harbors), y=log(as.numeric(gdp)),color=CONTINENT)) + geom_point() +
-  geom_smooth(method = "lm", se = FALSE, color="Black") + 
-  xlab("log(Harbors)") + labs(color = "Continents") + ylab("log(GDP per capita)") 
 
-# With labels
-countries10@data %>% filter(n_harbors>0) %>% 
-  group_by(n_harbors) %>%
-  mutate(gdp=(GDP_MD_EST/as.numeric(POP_EST))) %>%
-  filter(CONTINENT!="Antarctica", CONTINENT!="Seven seas (open ocean)") %>% 
-  #summarize(gdp=mean(GDP_MD_EST/as.numeric(POP_EST)), obs=n()) %>% 
-  ggplot(aes(x=log(n_harbors), y=log(as.numeric(gdp)))) + geom_point() +
-  geom_smooth(method = "lm", se = FALSE, color="Black") + 
-  xlab("log(Harbors)") + labs(caption = "") + ylab("log(GDP per capita)") +
-  geom_text(aes(label=SOVEREIGNT),hjust=0, vjust=0)  +
-  theme(legend.position="none")
-
-# First stage
-countries_list@data %>% filter(n_harbors>0) %>% 
+# Results
+dta_tmp <- countries_list@data %>% filter(n_harbors>0) %>%
+  #filter(INCOME_GRP!="1. High income: OECD") %>% 
   group_by(harbors) %>%
-  summarize(n_harbors=mean(n_harbors), obs=n()) %>% 
-  ggplot(aes(x=log(harbors), y=log(n_harbors))) + geom_point(alpha=0.2, size=4, color="Blue") +
-  geom_smooth(method = "lm", se = FALSE, color="Black", size=0.5) + 
-  xlab("Harbors") + labs(caption = "") + ylab("Predicted harbors") +
-  theme(legend.position="none")
+  summarize(area=mean(c_area), n_harbors=mean(n_harbors), gdp=mean(GDP_MD_EST), pop=mean(as.numeric(POP_EST))) %>% 
+  filter(harbors>0) %>% 
+  mutate(n_harbors=log(n_harbors), harbors = log(harbors), gdp=log(gdp), pop = log(pop), area=area)
 
-# To do: first stage, check the countries, set up the slides
+ggplotRegression(lm(harbors ~ n_harbors, data = dta_tmp)) + 
+  xlab("log(Harbors)") + ylab("log(Ports)") + theme(plot.title = element_text(size = 10))
+
+ggplotRegression(lm(harbors ~ n_harbors + area, data = dta_tmp)) + xlab("log(Harbors)") + ylab("log(Ports)")
+ggplotRegression(lm(pop ~ n_harbors + area, data = dta_tmp)) + xlab("log(Harbors)") + ylab("log(Population)")
+ggplotRegression(lm(gdp ~ n_harbors , data = dta_tmp)) + xlab("log(Harbors)") + ylab("log(Gdp)")
 
 
 
+
+library(lmtest)
+
+# Output as a dataframe
+lmodel1_corrected_df <- lmodel1 %>% coeftest(vcoc=hccm) %>% tidy %>% data.frame
+
+# add this to the function
+lmodel1_corrected_df <- lmodel1 %>% coeftest(vcoc=hccm) %>% tidy %>% data.frame
 
 
 
