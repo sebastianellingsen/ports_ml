@@ -81,20 +81,23 @@ y <- as.matrix(rep(0, length(inland_hexagons@polygons)))
 ID <- sapply(inland_hexagons@polygons, function(x) x@ID)
 inland_data_final <- cbind(ID, y, inland_data)
   
+## Making final dataset for prediction
+df <- rbind(coast_data_final)
+data <- data.frame(df) %>% rename(y = V2) 
+#%>% dplyr::select(V462, everything()) 
+row.names(data) <- data$ID
+data_pred <- subset(data, select = -ID)
+  
 ## Joining the inland and coast line data
 df <- rbind(coast_data_final, inland_data_final)
 data <- data.frame(df) %>% rename(y = V2) 
 #%>% dplyr::select(V462, everything()) 
 row.names(data) <- data$ID
 data <- subset(data, select = -ID)
-  
+
 toc()
 
-#save.image(file = "output/my_work_space1.RData")
-
-
-
-
+#save.image(file = "output/my_work_space5.RData")
 
 
 
