@@ -2,7 +2,8 @@
 set.seed(11042018)
 
 if (!require(pacman)) install.packages("pacman")
-p_load(tidyverse, sf, raster, tmap, sp, rgdal, rnaturalearth, rgeos, viridis, tictoc)
+p_load(tidyverse, sf, raster, tmap, sp, rgdal, rnaturalearth, rgeos, viridis, 
+       tictoc)
 
 newcrs <- CRS("+proj=moll +datum=WGS84 +units=km")
 
@@ -38,7 +39,8 @@ coastline_study_area <- gIntersection(buffer, coastline10)
 #Note: dx denotes the spacing of two horizontaly adjacent points
 
 hex_points <- spsample(buffer, type = "hexagonal", cellsize = 30)
-hexagons <- sapply(1:nrow(hex_points@coords), function(x) HexPoints2SpatialPolygons(hex_points[x],dx = 30)) 
+hexagons <- sapply(1:nrow(hex_points@coords), 
+                   function(x) HexPoints2SpatialPolygons(hex_points[x],dx = 30)) 
 hexagons <- list(hexagons, makeUniqueIDs = TRUE) %>% 
   flatten() %>% 
   do.call(rbind, .)
@@ -55,7 +57,8 @@ for (i in 1:nrow(hex_points@coords)){
   print(c(i/nrow(hex_points@coords), i))
 }
 coast_hexagons <- hexagons[coast_log]
-# coast_hexagons <- hexagons[sapply(1:nrow(hex_points@coords), function(x) gIntersects(coastline_study_area, hexagons[x]))==TRUE]
+# coast_hexagons <- hexagons[sapply(1:nrow(hex_points@coords), 
+#function(x) gIntersects(coastline_study_area, hexagons[x]))==TRUE]
 
 # only keep the shortest distance
 coast_data <- matrix(nrow=length(coast_hexagons@polygons), ncol = 288)
@@ -64,9 +67,11 @@ for (i in 1:length(coast_hexagons@polygons)){
   print(c(i/length(coast_hexagons@polygons), i))
 }
 
-#coast_data <- t(sapply(1:length(coast_hexagons@polygons), function(x) make_raster(coast_hexagons[x])))
+#coast_data <- t(sapply(1:length(coast_hexagons@polygons), 
+#function(x) make_raster(coast_hexagons[x])))
   
-y <- as.matrix(sapply(1:length(coast_hexagons@polygons), function(x) ifelse((gIntersects(ports_study_area,coast_hexagons[x])), 1, 0)))
+y <- as.matrix(sapply(1:length(coast_hexagons@polygons), 
+                      function(x) ifelse((gIntersects(ports_study_area,coast_hexagons[x])), 1, 0)))
 ID <- sapply(coast_hexagons@polygons, function(x) x@ID)
 coast_data_final <- cbind(ID, y, coast_data)
   
@@ -74,8 +79,10 @@ coast_data_final <- cbind(ID, y, coast_data)
 ## Generates the inland dataset 
 # her kan man bruke info fra koden over
 inland_hexagons <- hexagons[!coast_log]
-#inland_hexagons <- hexagons[sapply(1:nrow(hex_points@coords), function(x) gIntersects(coastline_study_area,hexagons[x]))==FALSE]
-inland_data <- sapply(1:length(inland_hexagons@polygons), function(x) rep(1, dim(coast_data)[2]))
+#inland_hexagons <- hexagons[sapply(1:nrow(hex_points@coords), 
+#function(x) gIntersects(coastline_study_area,hexagons[x]))==FALSE]
+inland_data <- sapply(1:length(inland_hexagons@polygons), 
+                      function(x) rep(1, dim(coast_data)[2]))
 inland_data <- t(inland_data)
 y <- as.matrix(rep(0, length(inland_hexagons@polygons)))
 ID <- sapply(inland_hexagons@polygons, function(x) x@ID)
@@ -97,7 +104,7 @@ data <- subset(data, select = -ID)
 
 toc()
 
-#save.image(file = "output/my_work_space5.RData")
+#save.image(file = "output/my_work_space6.RData")
 
 
 
