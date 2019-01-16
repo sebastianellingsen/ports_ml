@@ -12,13 +12,16 @@ ports <- readOGR("data/WPI_Shapefiles/WPI_Shapefile2010", "WPI")
 ports <- ports[ports$HARBORTYPE=="CN" & !is.na(ports$HARBORTYPE),]
 
 # Coastline
-coastline10 <- ne_download(scale = 10, type = 'coastline', category = 'physical')
+coastline10 <- ne_download(scale = 10, 
+                           type = 'coastline', category = 'physical')
 
 # Countries
-countries10 <- ne_download(scale = 10, type = 'countries', category = 'cultural')
+countries10 <- ne_download(scale = 10, 
+                           type = 'countries', category = 'cultural')
 
 # Elevation data
 elev <- raster("ETOPO1_Ice_g_geotiff.tif")
+
 crs(elev) <- crs(countries10)
 
 elev <- projectRaster(elev, crs = newcrs)
@@ -28,8 +31,8 @@ ports <- spTransform(ports, newcrs)
 
 tic()
   
-study_area <- countries10[countries10$CONTINENT!="Antarctica",]
-#study_area <- countries10[countries10$ADMIN=="Iceland",]
+#study_area <- countries10[countries10$CONTINENT!="Antarctica",]
+#study_area <- countries10[countries10$SOVEREIGNT=="Sweden",]
 #study_area <- countries10
 
 ports_study_area <- ports
@@ -71,11 +74,10 @@ for (i in 1:length(coast_hexagons@polygons)){
 #function(x) make_raster(coast_hexagons[x])))
   
 y <- as.matrix(sapply(1:length(coast_hexagons@polygons), 
-                      function(x) ifelse((gIntersects(ports_study_area,coast_hexagons[x])), 1, 0)))
+                      function(x) ifelse((gIntersects(ports_study_area, coast_hexagons[x])), 1, 0)))
 ID <- sapply(coast_hexagons@polygons, function(x) x@ID)
 coast_data_final <- cbind(ID, y, coast_data)
   
-
 ## Generates the inland dataset 
 # her kan man bruke info fra koden over
 inland_hexagons <- hexagons[!coast_log]
@@ -105,6 +107,8 @@ data <- subset(data, select = -ID)
 toc()
 
 #save.image(file = "output/my_work_space6.RData")
+
+
 
 
 
