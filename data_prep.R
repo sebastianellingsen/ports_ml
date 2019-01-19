@@ -32,7 +32,7 @@ ports <- spTransform(ports, newcrs)
 tic()
   
 #study_area <- countries10[countries10$SOVEREIGNT=="Iceland",]
-study_area <- countries10[countries10$TYPE=="Sovereign country",]
+#study_area <- countries10[countries10$TYPE=="Sovereign country",]
 
 ports_study_area <- ports
 buffer <- gBuffer(study_area, width = 15)
@@ -58,7 +58,7 @@ for (i in 1:nrow(hex_points@coords)){
 }
 coast_hexagons <- hexagons[coast_log]
 
-coast_data <- matrix(0, length(coast_hexagons@polygons) , 220)
+coast_data <- matrix(0, length(coast_hexagons@polygons), 220)
 for (i in 1:length(coast_hexagons@polygons)){
   coast_data[i,] <- make_raster(coast_hexagons[i])[[1]][1:220]
   print(c(i/length(coast_hexagons@polygons), i))
@@ -97,7 +97,7 @@ data <- subset(data, select = -ID)
 
 toc()
 
-#save.image(file = "output/my_work_space_test.RData")
+#save.image(file = "output/my_work_space_7.RData")
 
 
 
