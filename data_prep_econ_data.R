@@ -22,24 +22,37 @@ trade_data <- trade_data[!is.na(trade_data$country_code),]
 # Madison data
 econ_data <- read_excel("data/mpd2018.xlsx", sheet="Full data") %>% 
   filter(!is.na(cgdppc)) %>% filter(year>=1940) %>% 
-  group_by(country) %>% 
-  mutate(m_year=min(year)) %>% 
-  filter(m_year<=1940) 
- 
+  group_by(country) 
+
 # Data on ports and harbors
 harbor_data <- countries_list@data %>% mutate(country=SOVEREIGNT, country_code=ISO_A3) %>% 
-  select(n_harbors, harbors, country, area, country_code)
+  select(n_harbors, harbors, country, c_area, country_code)
+
+harbor_data[which(harbor_data$country=="Norway"),5] <- "NOR"
+harbor_data[which(harbor_data$country=="France"),5] <- "FRA"
 
 # Combining datasets
 combined <- inner_join(trade_data, harbor_data, by = "country_code") %>% 
-  #inner_join(econ_data, by = c("country", "year")) %>% 
+  #inner_join(econ_data, by = c("country", "year")) 
   filter(n_harbors>0) %>% 
   mutate(n_harbors=(n_harbors), gdp=(trade), 
-         area=log(area), p_high=ifelse(n_harbors>30,1,0)) %>% 
+         area=log(c_area), p_high=ifelse(n_harbors>9.00,1,0)) %>% 
   group_by(p_high, year) %>% 
   summarise(m_gdp=mean(gdp), n=n()) 
 
 print(ggplot(combined,aes(year,m_gdp, shape=as.factor(p_high))) + geom_point())
+
+
+
+
+#unique(trade_data$country_code)[!(unique(trade_data$country_code) %in% unique(harbor_data$country_code))]
+
+
+
+
+
+
+
 
 
 
