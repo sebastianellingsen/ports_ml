@@ -45,6 +45,17 @@ countries_list@data$n_harbors <- n_harbors
 countries_list@data$harbors <- harbors
 countries_list@data$c_area <- area(countries_list)
 
+# Coordinated in the current CRS
+long <- rep(0, nrow(countries_list@data))
+lat <- rep(0, nrow(countries_list@data))
+
+for (i in countries_list@data$SOVEREIGNT){
+  long[which(countries_list@data$SOVEREIGNT==i)] <- extent(countries_list[countries_list$SOVEREIGNT==i,])[1]
+  lat[which(countries_list@data$SOVEREIGNT==i)] <- extent(countries_list[countries_list$SOVEREIGNT==i,])[3]
+}
+
+countries_list@data$long <- long
+countries_list@data$lat <- lat
 
 
 #######################################
@@ -60,7 +71,7 @@ excel_sheets("data/Trade_of_Goods.xlsx")
 
 # Trade 
 trade_data <- read_excel("data/Trade_of_Goods.xlsx", skip=5) %>% 
-  select(-"Base Year", -"Scale") %>% 
+  dplyr::select(-"Base Year", -"Scale") %>% 
   replace_with_na_all(condition=~.x=="...") %>% 
   slice(1:185) %>% 
   gather("year", "trade",2:167) %>% 
@@ -81,7 +92,8 @@ econ_data <- read_excel("data/pwt90.xlsx", sheet="Data") %>%
 region <- c("MAC","HKG","GRL","ALA","CUW","SXM","ABW","JEY","GGY","IMN")
 harbor_data <- countries_list@data %>% 
   mutate(country=SOVEREIGNT, country_code=ISO_A3, continent=CONTINENT) %>% 
-  select(n_harbors, harbors, country, c_area, country_code, continent) %>% 
+  dplyr::select(n_harbors, harbors, country, c_area, country_code, 
+                continent, long, lat) %>% 
   filter(!(country_code %in% region), country!="Northern Cyprus", country!="Kosovo")
 
 harbor_data[which(harbor_data$country=="Norway"),5] <- "NOR"
@@ -89,78 +101,27 @@ harbor_data[which(harbor_data$country=="France"),5] <- "FRA"
 
 # Polity iv 
 polity_data <- read_excel("data/p4v2017.xls") %>% 
-  select(scode, country, year, polity2, democ) %>% filter(year==2010) 
+  dplyr::select(scode, country, year, polity2, democ) %>% filter(year==2010) 
 polity_data$country_code <- sapply(polity_data$country, 
         function(x) countrycode(x, 'country.name', 'iso3c'))
 
-# Landlocked countries:
-landlocked <- c(
-  "Afghanistan",	
-  "Andorra",
-  "Armenia",
-  "Austria",	
-  "Azerbaijan",
-  "Belarus",	
-  "Bhutan",	
-  "Bolivia",	
-  "Botswana",	
-  "Burkina Faso",	
-  "Burundi",	
-  "Central African Republic",	
-  "Chad",
-  "Czech Republic",	
-  "Eswatini", 
-  "Ethiopia",
-  "Hungary",	
-  "Kazakhstan",
-  "Kosovo",
-  "Kyrgyzstan",	
-  "Laos",	
-  "Lesotho",
-  "Liechtenstein",	
-  "Luxembourg",
-  "Macedonia",	
-  "Malawi",	
-  "Mali",	
-  "Moldova",	
-  "Mongolia",	
-  "Nepal",	
-  "Niger",	
-  "Paraguay",	
-  "Rwanda",	
-  "San Marino",	
-  "Serbia",	
-  "Slovakia",	
-  "South Ossetia",
-  "South Sudan",
-  "Switzerland",	
-  "Tajikistan",	
-  "Transnistria",
-  "Turkmenistan",
-  "Uganda",	
-  "Uzbekistan",
-  "Vatican City",
-  "West Bank",
-  "Zambia",	
-  "Zimbabwe")
-
+# Coastline:
+coastline_data <- read_excel("data/coastline.xlsx", col_names=c("country", "length"))
+coastline_data$country_code <- sapply(coastline_data$country, 
+                                   function(x) countrycode(x, 'country.name', 'iso3c'))
+coastline_data <- coastline_data %>% filter(!is.na(country_code))
 
 # Combining datasets
 combined <- inner_join(trade_data, harbor_data, by = "country_code") %>% 
   inner_join(econ_data, by = c("country_code")) %>%
   inner_join(polity_data, by = c("country_code")) %>% 
-  filter(!is.na(polity2)) %>% select(country_code, country, year, harbors, n_harbors,
+  inner_join(coastline_data, by = c("country_code")) %>% 
+  filter(!is.na(polity2)) %>% select(country_code, year, harbors, n_harbors,
                                 rgdpe, pop, trade, c_area, polity2)  
   
 
 
 
 
-
-
-
-
-
-#polity_data$country_code[!(polity_data$country_code %in% econ_data$country_code)]
 
 
