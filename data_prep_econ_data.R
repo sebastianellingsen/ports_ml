@@ -1,15 +1,10 @@
 
-
 ##############################################
 ## Generating  dataset at the country level ##
 ##############################################
 
 if (!require(pacman)) install.packages("pacman")
 p_load(tidyverse, sf, raster, tmap, sp, rgdal, rgeos, viridis, ranger, tmaptools)
-
-## Setting theme
-theme_set(theme_bw() + theme(panel.grid.minor = element_line(colour = "white", size = 0.5),
-                             panel.grid.major = element_line(colour = "white", size = 0.2)))
 
 #hexagons_full <- gIntersection(hexagons, study_area, byid = TRUE)
 
@@ -92,8 +87,7 @@ econ_data <- read_excel("data/pwt90.xlsx", sheet="Data") %>%
 region <- c("MAC","HKG","GRL","ALA","CUW","SXM","ABW","JEY","GGY","IMN")
 harbor_data <- countries_list@data %>% 
   mutate(country=SOVEREIGNT, country_code=ISO_A3, continent=CONTINENT) %>% 
-  dplyr::select(n_harbors, harbors, country, c_area, country_code, 
-                continent, long, lat) %>% 
+  dplyr::select(n_harbors, harbors, country, c_area, country_code, continent, long, lat) %>% 
   filter(!(country_code %in% region), country!="Northern Cyprus", country!="Kosovo")
 
 harbor_data[which(harbor_data$country=="Norway"),5] <- "NOR"
@@ -116,8 +110,9 @@ combined <- inner_join(trade_data, harbor_data, by = "country_code") %>%
   inner_join(econ_data, by = c("country_code")) %>%
   inner_join(polity_data, by = c("country_code")) %>% 
   inner_join(coastline_data, by = c("country_code")) %>% 
-  filter(!is.na(polity2)) %>% select(country_code, year, harbors, n_harbors,
-                                rgdpe, pop, trade, c_area, polity2)  
+  filter(!is.na(polity2)) %>% select(country_code, year, harbors, n_harbors, continent,
+                                rgdpe, pop, trade, c_area, polity2, length, long, lat) %>% 
+  filter(length>0)
   
 
 
