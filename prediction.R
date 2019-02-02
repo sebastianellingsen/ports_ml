@@ -20,7 +20,7 @@ p_load(ranger, Metrics, broom, rsample, tidyverse, stargazer, caret)
 ######################
 
 set.seed(11042018)
- 
+
 # Generate final balanced dataset 
 dataset <- data %>%
   mutate_all(type.convert) %>%
@@ -28,7 +28,6 @@ dataset <- data %>%
 
 dataset[is.na(dataset)] <- 0
 dataset$y <- as.factor(dataset$y)
-
 
 ## Generate data for prediction
 dataset <- data_pred %>%
@@ -43,6 +42,9 @@ dataset_noports <- dataset %>% filter(y==0)
 subsample_dataset_noports = sample_n(dataset_noports, size = nrow(dataset_ports))
 dataset = bind_rows(subsample_dataset_noports, dataset_ports)
 dataset <- dataset[sample(nrow(dataset)),]
+
+
+#dataset <- dataset %>% select(-(V3:V8), -(V287:V290))
 
 #data$y <- as.numeric(data$y)-1
 #dataset %>% mutate(y=as.numeric(y)) %>% dplyr::select(y) %>%  as.data.frame %>% stargazer(type="text")
@@ -116,14 +118,6 @@ plot(perf2, add=TRUE, col="red")
 plot(perf3, add=TRUE, col="blue")
 abline(a=0, b= 1,col="grey", lty=2)
 
-library(e1071)
-model <- svm(formula= y~., data=training_data)
-pred <- predict(model, testing_data)
-pred1 <- prediction(pred, testing_data$y)
-perf1 <- performance(pred1, "tpr", "fpr")
-plot(perf1, col="green")
-
-
 
 ## The confusion matrix
 training_data$y <- (training_data$y)
@@ -157,7 +151,7 @@ model
 plot(model)
 
 
-
+# add tuning section to the appendix
 
 
 
