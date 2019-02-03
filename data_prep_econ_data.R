@@ -83,6 +83,11 @@ econ_data <- read_excel("data/pwt90.xlsx", sheet="Data") %>%
   filter(year==2010) %>% 
   rename(country_code=countrycode)
 
+# Urban population
+urban_data <- read_excel("data/urban_population.xls", sheet="Data", skip=3) %>% 
+  rename(urban="2010", country_code="Country Code") %>% 
+  dplyr::select(country_code, urban)
+
 # Data on ports and harbors
 region <- c("MAC","HKG","GRL","ALA","CUW","SXM","ABW","JEY","GGY","IMN")
 harbor_data <- countries_list@data %>% 
@@ -109,9 +114,10 @@ coastline_data <- coastline_data %>% filter(!is.na(country_code))
 combined <- inner_join(trade_data, harbor_data, by = "country_code") %>% 
   inner_join(econ_data, by = c("country_code")) %>%
   inner_join(polity_data, by = c("country_code")) %>% 
-  inner_join(coastline_data, by = c("country_code")) %>% 
-  filter(!is.na(polity2)) %>% select(country_code, year, harbors, n_harbors, continent,
-                                rgdpe, pop, trade, c_area, polity2, length, long, lat) %>% 
+  inner_join(coastline_data, by = c("country_code")) %>%
+  inner_join(urban_data, by = c("country_code")) %>% 
+  filter(!is.na(polity2)) %>% dplyr::select(country_code, year, harbors, n_harbors, continent,
+                                rgdpe, pop, trade, c_area, polity2, length, long, lat, urban) %>% 
   filter(length>0)
   
 
