@@ -1,4 +1,12 @@
 
+#####################################################################
+## This file produces the regressions and the plots used in the paper
+####################################################################
+
+###############################
+## Loading data and packages ##
+###############################
+
 ## Setting theme
 theme_set(theme_bw() + theme(panel.grid.minor = element_line(colour = "white", size = 0.5),
                              panel.grid.major = element_line(colour = "white", size = 0.2)))
@@ -12,7 +20,10 @@ combined %>% select(-year) %>%
                              
   
   
-# Plotting a country
+######################################################
+## Plotting the fitted values for various countries ##
+######################################################
+
 plot_country <- function(x){
   
   # Define the datasets
@@ -41,7 +52,13 @@ tmap_arrange(p1,p2)
 
 
 
-## Plotting elevation and port data
+
+
+######################################
+## Plotting elevation and port data ##
+######################################
+# Note: buffering done on unprojected data 
+
 elev_tmp <- raster("/Users/sebastianellingsen/Dropbox/ports_ml/ETOPO1_Ice_g_geotiff.tif") 
 countries10_tmp <- ne_download(scale = 10, type = 'countries', category = 'cultural')
 spain <- countries10_tmp[countries10$ADMIN=="Sweden",]
@@ -49,15 +66,11 @@ spain <- countries10_tmp[countries10$ADMIN=="Sweden",]
 # Projecting the shapefile
 crs(elev_tmp) <- crs(countries10_tmp)
 
-# Note: in general buffering should be done on projected data. However,
-#       here it is fine since it just captures the whole area.
-
 # Buffer around region
 spain_buffer <- gBuffer(spain, width = 1)
 elev_cropped = crop(elev_tmp, spain_buffer)
 elev_masked = raster::mask(elev_cropped, spain_buffer)
 elev_masked[elev_masked < 0] <- 0
-
 
 # Set the same projection (units are in km)
 newcrs <- CRS("+proj=moll +datum=WGS84 +units=km")
@@ -91,20 +104,17 @@ tm_shape(sps_df_tmp) +
 
 
 
+#######################################
+## Plotting elevation and bathymetry ##
+#######################################
+# Note: buffering done on unprojected data 
 
-
-
-
-## Plotting elevation and port data
 elev_tmp <- raster("/Users/sebastianellingsen/Dropbox/ports_ml/ETOPO1_Ice_g_geotiff.tif") 
 countries10_tmp <- ne_download(scale = 10, type = 'countries', category = 'cultural')
 spain <- countries10_tmp[countries10$ADMIN=="Indonesia",]
 
 # Projecting the shapefile
 crs(elev_tmp) <- crs(countries10_tmp)
-
-# Note: in general buffering should be done on projected data. However,
-#       here it is fine since it just captures the whole area.
 
 # Buffer around region
 spain_buffer <- gBuffer(spain, width = 2)
@@ -149,18 +159,9 @@ tm_shape(elev_cropped) +
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-## Plotting the results: Reduced form relationship
+#########################################
+## Plotting reduced form relationships ##
+#########################################
 
 ggplotRegression <- function (fit) {
   
@@ -175,12 +176,8 @@ ggplotRegression <- function (fit) {
                        " Se. =",signif(summary(fit)$coef[2,2], 5)))
 }
 
-# Results
-
 combined <- combined %>% mutate(n_harbors=log(1+n_harbors),
                                 harbors=log(1+harbors),gdp=log(rgdpo/pop)) 
-
-
 
 
 ggplotRegression(lm(gdp ~ n_harbors, data = combined)) + 
@@ -190,6 +187,11 @@ ggplotRegression(lm(harbors ~ n_harbors + area, data = dta_tmp)) + xlab("log(Har
 ggplotRegression(lm(pop ~ n_harbors + area, data = dta_tmp)) + xlab("log(Harbors)") + ylab("log(Population)")
 ggplotRegression(lm(gdp ~ n_harbors + area , data = dta_tmp)) + xlab("log(Harbors)") + ylab("log(Gdp)")
 
+
+
+#########################
+## Running regressions ##
+#########################
 
 library(lmtest)
 
@@ -228,17 +230,7 @@ note.latex <- "\\multicolumn{7}{c} {\\parbox[c]{11cm}{\\textit{Notes:} Logistic 
 star[grepl("Note",star)] <- note.latex
 cat (star, sep = "\n")
 
-
-
-
-
-est.1 <- lm(harbors ~ n_harbors + area, data=dta_tmp)
-summary(est.1)
-
-
-
-
-
+## Panel data section
 library(plm)
 library(broom)
 lm_fixed <- plm(cgdppc ~ n_harbors*factor(year), data = combined, index = c("country.x", "year"), model = "within")
@@ -251,8 +243,6 @@ a <- a[which(a$term=="n_harbors:factor(year)1960"):which(a$term=="n_harbors:fact
 ggplot(a, aes(term,estimate)) +
   geom_point() +
   geom_vline(xintercept=which(a$term=="n_harbors:factor(year)1960"))
-
-
 
 lm_fixed <- plm(gdp ~ p_high*factor(year), data = combined, index = c("country"), model = "within")
 summary(lm_fixed)
@@ -271,27 +261,16 @@ ggplot(a, aes(term,estimate)) +
 
 
 
+######################
+## Nighlights data ###
+######################
 
-library(plm)
 
-summary(lm(log(trade) ~ log(harbors+1) + length + long + lat, data = combined))
-summary(plm(log(trade) ~ log(n_harbors+1) + length + long + lat, data = combined, index = c("continent"), model = "within"))
-summary(plm(log(rgdpe) ~ log(n_harbors+1) + length + long + lat, data = combined, index = c("continent"), model = "within"))
-summary(lm(log(rgdpe) ~ (n_harbors) + c_area, data = combined))
-summary(plm(polity2 ~ (n_harbors) + c_area, data = combined, index = c("continent"), model = "within"))
 
 
-ggplot(data=combined, aes(y=log(1+harbors), x = log(1+n_harbors)))+ geom_point(alpha=0.5)+stat_smooth(method = "lm",col = "black", se=TRUE)
-ggplot(data=combined, aes(y=log(trade), x = log(1+n_harbors)))+ geom_point(alpha=0.5)+stat_smooth(method = "lm", col = "black", se=TRUE)
-ggplot(data=combined, aes(y=log(rgdpe), x = log(1+n_harbors)))+ geom_point(alpha=0.5)+stat_smooth(method = "lm", col = "black", se=TRUE)
-ggplot(data=combined, aes(y=log(pop), x = log(1+n_harbors)))+ geom_point(alpha=0.5)+stat_smooth(method = "lm", col = "black", se=TRUE)
 
 
 
-ggplot(data=combined, aes(y=log(trade), x = log(1+n_harbors)))+ geom_point(alpha=0.5)+stat_smooth(method = "lm", col = "black", se=TRUE)
-ggplot(data=combined, aes(y=log(rgdpe), x = log(1+n_harbors)))+ geom_point()
-ggplot(data=combined, aes(y=(polity2), x = log(1+n_harbors)))+ geom_point()+
-  geom_text(aes(label=country_code),hjust=0, vjust=0)
 
 
 
@@ -299,20 +278,9 @@ ggplot(data=combined, aes(y=(polity2), x = log(1+n_harbors)))+ geom_point()+
 
 
 
-library(AER)
 
-rf_gdp1 <- lm(pop ~ n_harbors , data=combined)
-rf_gdp2<- lm(pop ~ n_harbors + area, data=combined)
 
-iv_gdp1 <- ivreg(pop ~ harbors | n_harbors , data=dta_tmp)
-iv_gdp2<- ivreg(pop ~ harbors + area| n_harbors + area, data=dta_tmp)
 
-stargazer(rf_gdp1, rf_gdp2, type="latex", 
-          star.char = c(""), dep.var.caption = "",
-          dep.var.labels.include = FALSE, column.labels   = c("OLS", "IV"),
-          column.separate = c(2, 2),notes = "The dependent variable is the logarithm of population.", notes.append = FALSE,
-          model.names = FALSE, covariate.labels = c("Harbors", "Area", "Ports"), header=FALSE,font.size="tiny", omit.stat = c("rsq", "f"))
-#,single.row = TRUE,column.sep.width = "1pt"
 
 
 
@@ -320,103 +288,5 @@ stargazer(rf_gdp1, rf_gdp2, type="latex",
 
 
 
-
-## Averaging over raster files, fungerer
-pop_density <- raster("data/population_density/gpw_v4_population_density_rev10_2010_2pt5_min.tif")
-
-#study_area <- countries10[countries10$CONTINENT=="Sweden",]
-
-## Averaging by country
-#hexagons_samerica
-
-
-
-
-
-
-
-
-
-
-#joining country polygons with the predictions, 
-
-# Iceland
-training_data <- training_data[sample(1:nrow(data)),]
-model_testing <- ranger(formula= y~., data=data, num.trees = 300, mtry = 40)
-prediction <- predict(model_testing, dataset_africa)$predictions
-prediction <- ifelse(prediction>=0.6, 1, 0)
-
-table(dataset_iceland$y, prediction)
-dataset_africa$prediction <-  prediction
-
-
-# den tror alt langs vannet er en port hvis man ikke trener den med innlandet.
-
-
-#hexagons_full <- gIntersection(hexagons_iceland, study_area, byid = TRUE)
-
-#ID <- sapply(hexagons_iceland@polygons, function(x) x@ID)
-#eval_df <- data.frame(dataset_iceland$y, prediction)
-#row.names(eval_df) <- ID
-sps_df <- c()
-sps_df <- SpatialPolygonsDataFrame(hexagons_africa, dataset_africa, match.ID = TRUE)
-sps_df <- sps_df[sps_df$prediction==1,]
-
-  tm_shape(study_area_namerica) +
-    tm_borders() +
-  tm_shape(sps_df) +
-    tm_fill(col="prediction", palette = plasma(256)) + tm_layout(frame=FALSE) 
-
-  
-
-n_harbors <- c()
-for (i in study_area_africa@data$ADMIN){
-  nr <- sum(sapply(1:nrow(sps_df), function(x) gIntersects(sps_df[x,], study_area_africa[study_area_africa$ADMIN==i,])))
-  n_harbors[which(study_area_africa@data$ADMIN==i)] <- nr
-  print(c(i, nr))
-}
-
-
-study_area_africa@data$n_harbors <- n_harbors
-  
-  
-  gdp_cap <- study_area_africa@data$GDP_MD_EST / as.numeric(study_area_africa@data$POP_EST)
-  study_area_africa@data$gdp_cap <- gdp_cap
-  study_area_africa@data$n_harbors <- study_area_africa@data$n_harbors / as.numeric(study_area_africa@data$POP_EST)
-
-
-plot(log(study_area_africa@data$n_harbors), log(study_area_africa@data$gdp_cap))
-
-ggplot(data=study_area_africa@data, aes(x=log(n_harbors), y=log(gdp_cap))) + geom_point() +
-  geom_smooth(method = "lm", se = FALSE)
-
-
-final <- rbind(study_area_namerica, study_area_samerica, study_area_africa, study_area_europe)
-
-
-ggplot(data=final@data, aes(x=log(n_harbors), y=log(gdp_cap))) + geom_point() +
-  geom_smooth(method = "lm", se = FALSE)
-
-
-
-
-
-
-# Urban population
-pop <- read_excel("data/mpd2018 (1).xlsx", sheet="pop", skip=1) %>% 
-  filter(year==1500|year==2000) %>% 
-  select_if(~!any(is.na(.))) %>% 
-  gather("country", "pop", 2:49) %>%
-  rename("country_code"="country") 
-
-
-combined_pop <- inner_join(pop, harbor_data, by = "country_code") 
-  
-summary(lm(data=combined_pop, formula=log(pop)~log(1+n_harbors)*factor(year)+factor(country)))
-
-
-
-
-y = a_i + post + treat + treat*post + e
 
 
