@@ -258,6 +258,20 @@ ggplot(a, aes(term,estimate)) +
 
 
 
+## Urban population over time
+pop <- read_excel("data/mpd2018 (1).xlsx", sheet="pop", skip=1) %>% 
+  filter(year==1500|year==2000) %>% 
+  select_if(~!any(is.na(.))) %>% 
+  gather("country", "pop", 2:49) %>%
+  rename("country_code"="country") 
+
+
+combined_pop <- inner_join(pop, harbor_data, by = "country_code") 
+
+summary(lm(data=combined_pop, formula=log(pop)~log(1+n_harbors)*factor(year)+factor(country)))
+
+
+
 
 
 
