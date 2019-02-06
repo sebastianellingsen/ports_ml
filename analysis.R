@@ -25,7 +25,7 @@ plot_country <- function(x){
   dataset_country_final <<- sps_df[row.names(sps_df) %in% sapply(dataset_country@polygons, function(x) x@ID), ]
 }
 
-plot_country("China")
+plot_country("Indonesia")
 
 # Defining variables
 dataset_country_final@data$pred <- ifelse(dataset_country_final@data$y_pred>=1.5, 1, 0)
@@ -34,7 +34,7 @@ dataset_country_final@data$false_n <- ifelse(as.numeric(dataset_country_final@da
 dataset_country_final@data$errors <- dataset_country_final@data$false_p + dataset_country_final@data$false_n
 
 # Plotting the predicted ports
-p1 <- tm_shape(dataset_country_final) +  tm_fill(col="y_pred", palette=plasma(256)) + tm_layout(frame=FALSE, legend.show=TRUE)
+p1 <- tm_shape(dataset_country_final) +  tm_fill(col="y_pred", palette=plasma(256)) + tm_layout(frame=TRUE, legend.show=FALSE,bg.color="grey85") 
 p2 <- tm_shape(dataset_country_final) +  tm_fill(col="errors", palette=plasma(256), title = "Figure 1a") + tm_layout(frame=FALSE, legend.show=FALSE)
 tmap_arrange(p1,p2)
 
@@ -65,7 +65,6 @@ spain <- spTransform(spain, newcrs)
 spain_buffer <- spTransform(spain_buffer, newcrs)
 elev <- projectRaster(elev_masked, crs = newcrs)
 
-
 # Generating the hexagons
 size <- 30
 hex_points_tmp <- spsample(spain_buffer, type = "hexagonal", cellsize = size)
@@ -80,6 +79,58 @@ data_tmp <- data.frame(log(elevations))
 row.names(data_tmp) <- ID
 sps_df_tmp<- SpatialPolygonsDataFrame(hexagons_tmp, data_tmp, match.ID = TRUE)
 
+library(tmap)
+
+# Aggregating over the hexagons
+tm_shape(sps_df_tmp) +
+  tm_fill(col="log.elevations.", palette=plasma(256),n=20, labels = NULL) + 
+  tm_layout(legend.show=FALSE, frame=FALSE)
+
+
+
+
+
+
+
+
+
+
+## Plotting elevation and port data
+elev_tmp <- raster("/Users/sebastianellingsen/Dropbox/ports_ml/ETOPO1_Ice_g_geotiff.tif") 
+countries10_tmp <- ne_download(scale = 10, type = 'countries', category = 'cultural')
+spain <- countries10_tmp[countries10$ADMIN=="Indonesia",]
+
+# Projecting the shapefile
+crs(elev_tmp) <- crs(countries10_tmp)
+
+# Note: in general buffering should be done on projected data. However,
+#       here it is fine since it just captures the whole area.
+
+# Buffer around region
+spain_buffer <- gBuffer(spain, width = 2)
+elev_cropped = crop(elev_tmp, spain_buffer)
+elev_masked = raster::mask(elev_cropped, spain_buffer)
+#elev_masked[elev_masked < 0] <- 0
+
+# Set the same projection (units are in km)
+newcrs <- CRS("+proj=moll +datum=WGS84 +units=km")
+spain <- spTransform(spain, newcrs)
+spain_buffer <- spTransform(spain_buffer, newcrs)
+elev <- projectRaster(elev_masked, crs = newcrs)
+
+# Generating the hexagons
+size <- 60
+hex_points_tmp <- spsample(spain_buffer, type = "hexagonal", cellsize = size)
+hex_grid_tmp <- HexPoints2SpatialPolygons(hex_points_tmp, dx = size)
+hexagons_tmp <- gIntersection(hex_grid_tmp, spain, byid = TRUE)
+elev_simple <- aggregate(elev, fact=4)
+
+# The raster can be simplified to speed up the calculations
+elevations <- sapply(1:length(hexagons_tmp@polygons), function(x) mean(values(mask(elev_simple, hexagons_tmp[x])), na.rm=TRUE))
+ID <- sapply(hexagons_tmp@polygons, function(x) x@ID)
+data_tmp <- data.frame(log(elevations))
+row.names(data_tmp) <- ID
+sps_df_tmp<- SpatialPolygonsDataFrame(hexagons_tmp, data_tmp, match.ID = TRUE)
 
 library(tmap)
 
@@ -88,7 +139,13 @@ tm_shape(sps_df_tmp) +
   tm_fill(col="log.elevations.", palette=plasma(256),n=20, labels = NULL) + 
   tm_layout(legend.show=FALSE, frame=FALSE)
 
-#+
+# Aggregating over the hexagons
+tm_shape(elev_cropped) +
+  tm_raster(midpoint = NA, palette=plasma(3), style="quantile") + 
+  #tm_shape(spain) + tm_borders(col="white", lwd=0.7)+
+  tm_layout(legend.show=FALSE, frame=TRUE)+
+  tm_shape(hexagons_tmp)+tm_borders(col="white", lwd=0.3)
+
 
 
 
