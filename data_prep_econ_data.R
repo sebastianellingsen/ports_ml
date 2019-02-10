@@ -110,19 +110,61 @@ coastline_data$country_code <- sapply(coastline_data$country,
                                    function(x) countrycode(x, 'country.name', 'iso3c'))
 coastline_data <- coastline_data %>% filter(!is.na(country_code))
 
+
+
 # Combining datasets
-combined <- inner_join(trade_data, harbor_data, by = "country_code") %>% 
-  inner_join(econ_data, by = c("country_code")) %>%
+combined <- inner_join(econ_data, harbor_data, by = "country_code") %>% 
   inner_join(polity_data, by = c("country_code")) %>% 
   inner_join(coastline_data, by = c("country_code")) %>%
   inner_join(urban_data, by = c("country_code")) %>% 
-  filter(!is.na(polity2)) %>% dplyr::select(country_code, year, harbors, n_harbors, continent,
-                                rgdpe, pop, trade, c_area, polity2, length, long, lat, urban) %>% 
-  filter(length>0)
+  filter(length>0) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Commodity exports
+commodity_data <- read_excel("data/API_TX.VAL.MMTL.ZS.UN_DS2_en_excel_v2_10404372.xls", skip=3) %>% 
+  dplyr::select(-"Indicator Name", -"Indicator Code", -"Country Code") %>% 
+  gather("year", "share", 2:60) %>% 
+  filter(year>=1997, !is.na(share)) 
+
+colnames(commodity_data)[1] <- "country"
+
+countries <- c("Botswana", "Burkina Faso", "Cameroun", "Democratic Republic of Congo",
+               "Ethiopia", "Gabon", "Ghana", "Guinea", "Liberia", "Egypt", 
+               "Madagascar", "Mauritania", "Morocco", "Mozambique", "Namibia",
+               "Niger", "Rwanda", "Senegal", "South Africa", "Tanzania", "Uganda",
+               "Zambia", "Zimbabwe", "Brazil", "Indonesia", "Chile", "Colombia"
+               ) 
+
+commodity_data1 <- commodity_data %>% filter(country %in% countries) %>% 
+  group_by(year) %>% 
+  summarise(share=mean(share)) %>% 
+  filter(year>=1996, year<=2008)
   
 
+p1 <- ggplot(data=commodity_data1, aes(x=year, y=share))+geom_point()+geom_line(group = 1)
 
 
+commodity_data <- read_excel("data/CMOHistoricalDataAnnual.xlsx", sheet="Annual Indices (Real)",skip=9) %>% 
+  rename(metals=KiMETMIN, year=X__1) %>% 
+  dplyr::select(metals, year) %>% 
+  filter(year>=1996, year<=2012)
+p2 <- ggplot(data=commodity_data, aes(x=year, y=metals))+geom_point()+geom_line(group = 1)
 
+
+ggarrange(p2,p1)
 
 
