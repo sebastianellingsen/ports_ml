@@ -129,42 +129,119 @@ combined <- inner_join(econ_data, harbor_data, by = "country_code") %>%
 
 
 
+# Nightlights
+dataset <- data_pred %>%
+  mutate_all(type.convert) %>%
+  mutate_if(is.factor, as.numeric) 
+
+dataset[is.na(dataset)] <- 0
+dataset$y <- as.factor(dataset$y)
+
+model <- ranger(formula= as.numeric(y)~., data=training_data, num.trees = 4000, mtry = 5)
+prediction <- predict(model, dataset)$predictions
+
+dataset_final <- dataset %>%  dplyr::select(y) %>% mutate(y_pred=prediction)
+row.names(dataset_final) <- coast_data_final[,1]
+
+# add the country it belongs to 
+lights <- raster("data/nightlights/F182010.v4/F182010.v4d_web.stable_lights.avg_vis.tif")
+
+sps_df_coastal <- SpatialPolygonsDataFrame(coast_hexagons, dataset_final, match.ID = TRUE)
+
+light_hexagons <- sapply(1:length(coast_hexagons@polygons), function(x) mean(values(mask(lights, coast_hexagons[x])), na.rm=TRUE))
 
 
 
 
 
-# Commodity exports
+
+
+
+
+
+
+
+
+
+
+
+
+# Share of gpd
 commodity_data <- read_excel("data/API_TX.VAL.MMTL.ZS.UN_DS2_en_excel_v2_10404372.xls", skip=3) %>% 
   dplyr::select(-"Indicator Name", -"Indicator Code", -"Country Code") %>% 
   gather("year", "share", 2:60) %>% 
   filter(year>=1997, !is.na(share)) 
 
-colnames(commodity_data)[1] <- "country"
 
-countries <- c("Botswana", "Burkina Faso", "Cameroun", "Democratic Republic of Congo",
-               "Ethiopia", "Gabon", "Ghana", "Guinea", "Liberia", "Egypt", 
-               "Madagascar", "Mauritania", "Morocco", "Mozambique", "Namibia",
-               "Niger", "Rwanda", "Senegal", "South Africa", "Tanzania", "Uganda",
-               "Zambia", "Zimbabwe", "Brazil", "Indonesia", "Chile", "Colombia"
-               ) 
 
-commodity_data1 <- commodity_data %>% filter(country %in% countries) %>% 
-  group_by(year) %>% 
-  summarise(share=mean(share)) %>% 
-  filter(year>=1996, year<=2008)
+
+## Commodity prices
+commodity_data <- read_excel("data/CMOHistoricalDataAnnual.xlsx", sheet="Annual Prices (Real)",skip=8) %>% 
+  dplyr::select(X__1,KSILVER,KPLATINUM,KGOLD,KZinc,KNICKEL,KTin,KLEAD,
+                KCOPPER,KIRON_ORE,KALUMINUM,KPOTASH) %>% 
+  rename(year=X__1, Silver=KSILVER,Platinum=KPLATINUM,Gold=KGOLD,
+         Zinc=KZinc,Nickel=KNICKEL,Tin=KTin,Lead=KLEAD,Copper=KCOPPER,
+         Iron=KIRON_ORE,Aluminum=KALUMINUM,Potash=KPOTASH) %>% 
+  filter(year>=1990, year<=2015) %>% 
+  gather("year metal", "price", 2:12) 
   
+colnames(commodity_data)[2] <- "metal"
+commodity_data$metal <- as.factor(commodity_data$metal)
 
-p1 <- ggplot(data=commodity_data1, aes(x=year, y=share))+geom_point()+geom_line(group = 1)
+commodity_data <- commodity_data %>% 
+  group_by(metal) %>% 
+  mutate(price_1990=ifelse(year==1990,price,0)) %>% 
+  mutate(price_1990=max(price_1990)) %>% 
+  ungroup() %>% 
+  mutate(price=price/price_1990)
+
+ggplot(data=commodity_data, aes(x=year, y=price,color=metal))+geom_line(alpha=0.9) +
+  xlab("") + ylab("") +
+  ggtitle("Prices (normalized)") +
+  geom_vline(xintercept=2003, linetype = "longdash",alpha=0.6)+
+  theme(legend.title = element_blank()) 
 
 
-commodity_data <- read_excel("data/CMOHistoricalDataAnnual.xlsx", sheet="Annual Indices (Real)",skip=9) %>% 
-  rename(metals=KiMETMIN, year=X__1) %>% 
-  dplyr::select(metals, year) %>% 
-  filter(year>=1996, year<=2012)
-p2 <- ggplot(data=commodity_data, aes(x=year, y=metals))+geom_point()+geom_line(group = 1)
 
 
-ggarrange(p2,p1)
+lead og potash mangler
+## Commodity production
 
+metals <- c("aluminum", "copper", "gold", "iron_ore", "nickel", "platinum",
+            "silver", "tin", "zinc")
+
+for (m in metals){
+  path <- paste(paste("data/commodities/production/",m,sep = "")
+                ,"/statisticsExport (1).xlsx" ,sep = "")
+  #metal <- read_excel(path, skip=1)
+  print(path)
+}
+
+
+metal <- read_excel("data/commodities/production/iron_ore/statisticsExport (2).xlsx", skip=1) %>% 
+  rename("2001"=X__1,"2002"=X__2,"2003"=X__3,"2004"=X__4,"2005"=X__5,"2006"=X__6,
+         "2007"=X__7,"2008"=X__8,"2009"=X__9,"2010"=X__10, "country"="\n\tCountry") %>% 
+  dplyr::select(country, "2001","2002","2003","2004","2005","2006","2007","2008",
+                "2009","2010") %>% 
+  slice(1:55) %>% 
+  gather("country year", "tonnes", 2:11) %>% 
+  rename("year"="country year") %>% 
+  filter(!is.na(tonnes)) %>% 
+  mutate(country=as.factor(country),year=as.numeric(year))
+  
+metal_normalized <- metal %>% 
+  group_by(country) %>% 
+  mutate(tonnes_1990=ifelse(year==2001,tonnes,0)) %>% 
+  mutate(tonnes_1990=max(tonnes_1990)) %>% 
+  ungroup() %>% 
+  mutate(tonnes=tonnes/tonnes_1990)
+
+
+
+
+ggplot(data=metal_normalized, aes(x=year, y=tonnes,color=country))+geom_line() +
+  xlab("") + ylab("") +
+  ggtitle("Prices (normalized)") +
+  geom_vline(xintercept=2003, linetype = "longdash",alpha=0.6)+
+  theme(legend.title = element_blank()) 
 
