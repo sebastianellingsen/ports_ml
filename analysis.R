@@ -36,7 +36,7 @@ plot_country <- function(x){
   dataset_country_final <<- sps_df[row.names(sps_df) %in% sapply(dataset_country@polygons, function(x) x@ID), ]
 }
 
-plot_country("China")
+plot_country("Denmark")
 
 # Defining variables
 dataset_country_final@data$pred <- ifelse(dataset_country_final@data$y_pred>=1.6, 1, 0)
@@ -384,22 +384,30 @@ ggplot(grid_cell, aes(x = y_pred, y = y)) +
 
 
 
+virker fordi crs er en annen?
 
+elev_projected <- raster("ETOPO1_Ice_g_geotiff.tif")
+elev_projected <- elev
 
+#crs(elev_projected) <- crs(countries10)
 
-
-
+#elev_projected1 <- projectRaster(elev_projected, crs = newcrs)
 
 ## What features are predicted?
-elev[elev>0] <- 0
 
 sps_df_coastal <- SpatialPolygonsDataFrame(coast_hexagons, dataset_final, match.ID = TRUE)
 
-lights_data_mean <- rep(NA, length(coast_hexagons@polygons))
-lights_data_sd <- rep(NA, length(coast_hexagons@polygons))
-for (i in 1:length(coast_hexagons@polygons)){
+lights_data_mean_above <- rep(NA, length(coast_hexagons@polygons))
+lights_data_sd_above <- rep(NA, length(coast_hexagons@polygons))
+lights_data_mean_below <- rep(NA, length(coast_hexagons@polygons))
+lights_data_sd_below <- rep(NA, length(coast_hexagons@polygons))
+tri <- rep(NA, length(coast_hexagons@polygons))
+
+for (i in 1:2000){
   
-  hexagon_cropped <-  values(crop(elev, coast_hexagons[i]))
+  hexagon_cropped <-  values(crop(elev_projected, coast_hexagons[i]))
+  ri <- tri(crop(elev_projected, coast_hexagons[i]), exact = TRUE, s = 3)
+  tri[i] <- mean(values(ri),na.rm=TRUE)
   
   #Points above water
   hexagon_above<- hexagon_cropped[hexagon_cropped>0]
@@ -408,35 +416,61 @@ for (i in 1:length(coast_hexagons@polygons)){
   hexagon_below <- hexagon_cropped[hexagon_cropped<=0]
   
   # Moments above
-  lights_data_mean[i] <- raster::extract(elev, hexagon_above, fun=mean, na.rm=TRUE)
-  lights_data_sd[i] <- raster::extract(elev, hexagon_above, fun=sd, na.rm=TRUE)
+  lights_data_mean_above[i] <- mean(hexagon_above, na.rm=TRUE)
+  lights_data_sd_above[i] <- sd(hexagon_above, na.rm=TRUE)
   
   # Moments below
-  lights_data_mean[i] <- raster::extract(elev, hexagon_below, fun=mean, na.rm=TRUE)
-  lights_data_sd[i] <- raster::extract(elev, coast_hexagons[i], fun=sd, na.rm=TRUE)
+  lights_data_mean_below[i] <- mean(hexagon_below, na.rm=TRUE)
+  lights_data_sd_below[i] <- sd(hexagon_below, na.rm=TRUE)
   
   print(i)
 }
 
 
-
-
-
-sps_df_coastal$elev_mean <-lights_data_mean
-sps_df_coastal$elev_sd <-lights_data_sd
+sps_df_coastal$lights_data_mean_below <-lights_data_mean_below
+sps_df_coastal$lights_data_sd_below <-lights_data_sd_below
+sps_df_coastal$lights_data_mean_above <-lights_data_mean_above
+sps_df_coastal$lights_data_sd_above <-lights_data_sd_above
+sps_df_coastal$tri <-tri
+sps_df_coastal$y_pred <-sps_df_coastal$y_pred-1
 
 
 lights_reg_data <-  sps_df_coastal@data
 
 lights_reg_data_1 <- lights_reg_data %>% 
-  mutate(elev_data=log(1+elev_data_mean), elev_sd=log(1+elev_sd)) 
+  mutate(lights_data_mean_above=log(1+lights_data_mean_above), lights_data_sd_above=log(1+lights_data_sd_above)) 
 
-ggplot(data=lights_reg_data_1, aes(x=y_pred, y=elev_sd))+ geom_point(color='blue',alpha=0.05)+geom_rug(alpha = 0.01)
+p1 <- ggplot(data=lights_reg_data, aes(x=y_pred, y=lights_data_mean_below))+
+  geom_point(color='blue',alpha=0.1)+geom_rug(alpha = 0.01)+ xlab("")+ ylab("")+ggtitle("Mean (m<0)")+ 
+    geom_smooth(method="lm",color="black",size=0.5)
+p2 <- ggplot(data=lights_reg_data, aes(x=y_pred, y=lights_data_sd_below))+
+  geom_point(color='blue',alpha=0.1)+geom_rug(alpha = 0.01)+ xlab("")+ ylab("")+ggtitle("Mean (m>0)")+ 
+    geom_smooth(method="lm",color="black",size=0.5)
+p3 <- ggplot(data=lights_reg_data, aes(x=y_pred, y=lights_data_mean_above))+
+  geom_point(color='blue',alpha=0.1)+geom_rug(alpha = 0.01)+ xlab("")+ ylab("")+ggtitle("sd (m<0)")+ 
+  geom_smooth(method="lm",color="black",size=0.5)
+p4 <- ggplot(data=lights_reg_data, aes(x=y_pred, y=lights_data_sd_above))+ 
+  geom_point(color='blue',alpha=0.1)+geom_rug(alpha = 0.01)+ xlab("")+ ylab("")+ggtitle("sd (m>0)")+ 
+  geom_smooth(method="lm",color="black",size=0.5)
+p5 <- ggplot(data=lights_reg_data, aes(x=y_pred, y=tri))+ 
+  geom_point(color='blue',alpha=0.1)+geom_rug(alpha = 0.01) + xlab("") + ylab("")+ggtitle("Ruggedness")+ 
+  geom_smooth(method="lm",color="black",size=0.5)
+
+
+library(ggpubr)
+ggarrange(p1,p2,p3,p4,p5)
+
+library(spatialEco)
+spain <- countries10_tmp[countries10$ADMIN=="Sweden",]
+
+hexagon_cropped <-  (crop(elev_projected, spain))
+slope_asp = terrain(hexagon_cropped, opt=c('slope', 'aspect'), unit='degrees', neighbors=8)
+ruged <- tri(elev_cropped,exact = TRUE, s = 3)
 
   
 lights_data_mean <- raster::extract(elev, coast_hexagons[1], fun=mean, na.rm=TRUE)
 
-hexagon_cropped <-  values(crop(elev, coast_hexagons[1]))
+hexagon_cropped <-  values(crop(elev_projected, coast_hexagons[100]))
 hexagon_cropped <- hexagon_cropped[hexagon_cropped>0]
 
-
+#length(coast_hexagons@polygons)
