@@ -384,7 +384,6 @@ ggplot(grid_cell, aes(x = y_pred, y = y)) +
 
 
 
-virker fordi crs er en annen?
 
 elev_projected <- raster("ETOPO1_Ice_g_geotiff.tif")
 elev_projected <- elev
@@ -395,6 +394,9 @@ elev_projected <- elev
 
 ## What features are predicted?
 
+library(ggpubr)
+library(spatialEco)
+
 sps_df_coastal <- SpatialPolygonsDataFrame(coast_hexagons, dataset_final, match.ID = TRUE)
 
 lights_data_mean_above <- rep(NA, length(coast_hexagons@polygons))
@@ -403,7 +405,7 @@ lights_data_mean_below <- rep(NA, length(coast_hexagons@polygons))
 lights_data_sd_below <- rep(NA, length(coast_hexagons@polygons))
 tri <- rep(NA, length(coast_hexagons@polygons))
 
-for (i in 1:2000){
+for (i in 1:length(coast_hexagons@polygons)){
   
   hexagon_cropped <-  values(crop(elev_projected, coast_hexagons[i]))
   ri <- tri(crop(elev_projected, coast_hexagons[i]), exact = TRUE, s = 3)
@@ -426,51 +428,35 @@ for (i in 1:2000){
   print(i)
 }
 
-
 sps_df_coastal$lights_data_mean_below <-lights_data_mean_below
 sps_df_coastal$lights_data_sd_below <-lights_data_sd_below
 sps_df_coastal$lights_data_mean_above <-lights_data_mean_above
 sps_df_coastal$lights_data_sd_above <-lights_data_sd_above
 sps_df_coastal$tri <-tri
-sps_df_coastal$y_pred <-sps_df_coastal$y_pred-1
+#sps_df_coastal$y_pred <-sps_df_coastal$y_pred-1
 
 
 lights_reg_data <-  sps_df_coastal@data
 
 lights_reg_data_1 <- lights_reg_data %>% 
-  mutate(lights_data_mean_above=log(1+lights_data_mean_above), lights_data_sd_above=log(1+lights_data_sd_above)) 
+  mutate(lights_data_mean_below=log(-lights_data_mean_below), 
+         lights_data_sd_below=log(lights_data_sd_below),
+         lights_data_mean_above=log(lights_data_mean_above),
+         lights_data_sd_above=log(lights_data_sd_above),
+         tri=log(tri))
 
 p1 <- ggplot(data=lights_reg_data, aes(x=y_pred, y=lights_data_mean_below))+
-  geom_point(color='blue',alpha=0.1)+geom_rug(alpha = 0.01)+ xlab("")+ ylab("")+ggtitle("Mean (m<0)")+ 
-    geom_smooth(method="lm",color="black",size=0.5)
-p2 <- ggplot(data=lights_reg_data, aes(x=y_pred, y=lights_data_sd_below))+
-  geom_point(color='blue',alpha=0.1)+geom_rug(alpha = 0.01)+ xlab("")+ ylab("")+ggtitle("Mean (m>0)")+ 
-    geom_smooth(method="lm",color="black",size=0.5)
-p3 <- ggplot(data=lights_reg_data, aes(x=y_pred, y=lights_data_mean_above))+
-  geom_point(color='blue',alpha=0.1)+geom_rug(alpha = 0.01)+ xlab("")+ ylab("")+ggtitle("sd (m<0)")+ 
-  geom_smooth(method="lm",color="black",size=0.5)
-p4 <- ggplot(data=lights_reg_data, aes(x=y_pred, y=lights_data_sd_above))+ 
-  geom_point(color='blue',alpha=0.1)+geom_rug(alpha = 0.01)+ xlab("")+ ylab("")+ggtitle("sd (m>0)")+ 
-  geom_smooth(method="lm",color="black",size=0.5)
-p5 <- ggplot(data=lights_reg_data, aes(x=y_pred, y=tri))+ 
-  geom_point(color='blue',alpha=0.1)+geom_rug(alpha = 0.01) + xlab("") + ylab("")+ggtitle("Ruggedness")+ 
-  geom_smooth(method="lm",color="black",size=0.5)
+  geom_rug(alpha = 0.01)+ xlab("")+ ylab("")+
+  ggtitle("Mean (m<0)")+stat_summary_bin(fun.y='mean', bins=30,color='blue',alpha=0.3, size=2, geom='point')
+p2 <- ggplot(data=lights_reg_data, aes(x=y_pred, y=lights_data_mean_above))+
+  geom_rug(alpha = 0.01)+ xlab("")+ ylab("")+
+  ggtitle("Mean (m>0)")+stat_summary_bin(fun.y='mean', bins=30,color='blue',alpha=0.3, size=2, geom='point')
+p3 <- ggplot(data=lights_reg_data, aes(x=y_pred, y=tri))+ 
+  geom_rug(alpha = 0.01) + xlab("") + ylab("")+
+ ggtitle("Ruggedness")+stat_summary_bin(fun.y='mean', bins=30,color='blue',alpha=0.3, size=2, geom='point')
+
+ggarrange(p1,p2,p3,ncol=3)
 
 
-library(ggpubr)
-ggarrange(p1,p2,p3,p4,p5)
 
-library(spatialEco)
-spain <- countries10_tmp[countries10$ADMIN=="Sweden",]
 
-hexagon_cropped <-  (crop(elev_projected, spain))
-slope_asp = terrain(hexagon_cropped, opt=c('slope', 'aspect'), unit='degrees', neighbors=8)
-ruged <- tri(elev_cropped,exact = TRUE, s = 3)
-
-  
-lights_data_mean <- raster::extract(elev, coast_hexagons[1], fun=mean, na.rm=TRUE)
-
-hexagon_cropped <-  values(crop(elev_projected, coast_hexagons[100]))
-hexagon_cropped <- hexagon_cropped[hexagon_cropped>0]
-
-#length(coast_hexagons@polygons)
