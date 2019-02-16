@@ -148,21 +148,87 @@ lights <- raster("data/nightlights/F182010.v4/F182010.v4d_web.stable_lights.avg_
 
 sps_df_coastal <- SpatialPolygonsDataFrame(coast_hexagons, dataset_final, match.ID = TRUE)
 
-light_hexagons <- sapply(1:length(coast_hexagons@polygons), function(x) mean(values(mask(lights, coast_hexagons[x])), na.rm=TRUE))
+lights_small <- aggregate(lights, 6)
+lights_small_projected <- projectRaster(lights_small, crs = newcrs)
+
+lights_data <- rep(NA, length(coast_hexagons@polygons))
+for (i in 1:length(coast_hexagons@polygons)){
+  lights_data[i] <- mean(values(crop(lights_small_projected, coast_hexagons[i])), na.rm=TRUE)
+  print(i)
+}
+
+sps_df_coastal$lights_data <- lights_data
+
+lights_reg_data <-  sps_df_coastal@data
+summary(lm(data=lights_reg_data_1, formula=y_pred~lights_data))
+
+lights_reg_data_1 <- lights_reg_data %>% 
+  mutate(lights_data=log(1+lights_data), y_pred=log(y_pred)) 
+
+ggplot(data=lights_reg_data_1, aes(x=y_pred, y=lights_data))+
+  stat_summary_bin(fun.y='mean', bins=200,color='blue',alpha=0.3, size=2, geom='point')+
+  geom_rug(alpha = 0.01) + xlab("") + ylab("")+ggtitle("Nightlights and port suitability")
 
 
 
 
 
 
+# In what country are the hexagons?
+
+countries <- countries_list@data$ADMIN
+
+ID_country <- c()
+country_var <- c()
+country_logical <- rep(NA, length(coast_hexagons@polygons))
+
+#countries <- c("Denmark", "Germany", "Brazil")
+
+for (j in countries){
+  
+  country <- countries10[countries10$ADMIN==j,]
+  
+  for (i in 1:length(coast_hexagons@polygons)){
+    country_logical[i] <- gIntersects(coast_hexagons[i], country)==TRUE
+    
+    print(c(i/length(coast_hexagons@polygons),country@data$NAME))
+  }
+  
+  country_tmp <- coast_hexagons[country_logical]
+  ID_country_tmp <- sapply(country_tmp@polygons, function(x) x@ID)
+  country_var_tmp <- rep(country@data$NAME, length(ID_country_tmp))
+  
+  ID_country <- c(ID_country, ID_country_tmp)
+  country_var <- c(country_var,country_var_tmp)
+
+}
+
+
+# sa sjekk at man kan joine, lag en ny sa du ikke ma loade igjen
+ID_country_vector <- unlist(ID_country)
+country_df <- data.frame(ID_country_vector, country_var)
+
+country_df <- country_df  %>% 
+  distinct(ID_country_vector, .keep_all = TRUE)
+
+row.names(country_df) <- country_df$ID_country_vector
+
+final<- coast_hexagons[sapply(coast_hexagons@polygons, function(x) x@ID) %in% country_df$ID_country]
+
+final_pdf<- SpatialPolygonsDataFrame(final, 
+                                     country_df, match.ID = TRUE)
+
+
+plot(final_pdf[final_pdf@data$country_var=="Angola",])
 
 
 
-
-
-
-
-
+  
+  
+  
+  
+  
+  
 
 
 
