@@ -203,7 +203,6 @@ for (j in countries){
 
 }
 
-
 # sa sjekk at man kan joine, lag en ny sa du ikke ma loade igjen
 ID_country_vector <- unlist(ID_country)
 country_df <- data.frame(ID_country_vector, country_var)
@@ -219,13 +218,48 @@ final_pdf<- SpatialPolygonsDataFrame(final,
                                      country_df, match.ID = TRUE)
 
 
-plot(final_pdf[final_pdf@data$country_var=="Angola",])
+plot(final_pdf[final_pdf@data$country_var=="Indonesia",])
 
 
 
-  
-  
-  
+
+sps_df_coastal_df <- sps_df_coastal@data
+sps_df_coastal_df$ID <- row.names(sps_df_coastal_df)
+final_pdf@data$ID <- final_pdf@data$ID_country_vector
+final_pdf_df <- final_pdf@data
+
+sps_df_coastal_df_tomatch <- sps_df_coastal_df[row.names(sps_df_coastal_df)%in%final_pdf_df$ID,]
+
+lights_fe <- sps_df_coastal_df_tomatch %>% full_join(final_pdf_df,by="ID")
+
+
+summary(lm(data=lights_fe, formula=y_pred~lights_data + factor(country_var)))
+
+
+
+# Population density 
+
+
+# add the country it belongs to 
+pop_density <- raster("data/population_density/gpw-v4-population-density-rev10_2005_2pt5_min_tif/gpw_v4_population_density_rev10_2005_2pt5_min.tif")
+
+sps_df_coastal <- SpatialPolygonsDataFrame(coast_hexagons, dataset_final, match.ID = TRUE)
+
+
+pop_density_projected <- projectRaster(pop_density, crs = newcrs)
+
+lights_data <- rep(NA, length(coast_hexagons@polygons))
+for (i in 1:length(coast_hexagons@polygons)){
+  lights_data[i] <- mean(values(crop(lights_small_projected, coast_hexagons[i])), na.rm=TRUE)
+  print(i)
+}
+
+sps_df_coastal$lights_data <- lights_data
+
+
+
+
+
   
   
   
