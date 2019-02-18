@@ -128,8 +128,8 @@ combined <- inner_join(econ_data, harbor_data, by = "country_code") %>%
 
 
 
-
-# Nightlights
+## Preparing panel of night lights and population density data
+# Preparing coast data 
 dataset <- data_pred %>%
   mutate_all(type.convert) %>%
   mutate_if(is.factor, as.numeric) 
@@ -137,45 +137,51 @@ dataset <- data_pred %>%
 dataset[is.na(dataset)] <- 0
 dataset$y <- as.factor(dataset$y)
 
-model <- ranger(formula= as.numeric(y)~., data=training_data, num.trees = 4000, mtry = 5)
+model <- ranger(formula= as.numeric(y)~., data=training_data, 
+                num.trees = 4000, mtry = 5)
 prediction <- predict(model, dataset)$predictions
 
 dataset_final <- dataset %>%  dplyr::select(y) %>% mutate(y_pred=prediction)
 row.names(dataset_final) <- coast_data_final[,1]
 
-# add the country it belongs to 
+sps_df_coastal <- SpatialPolygonsDataFrame(coast_hexagons, dataset_final, 
+                                           match.ID = TRUE)
+
+# Loading, projecting and aggregating raster files 
 lights <- raster("data/nightlights/F182010.v4/F182010.v4d_web.stable_lights.avg_vis.tif")
-
-sps_df_coastal <- SpatialPolygonsDataFrame(coast_hexagons, dataset_final, match.ID = TRUE)
-
 lights_small <- aggregate(lights, 6)
 lights_small_projected <- projectRaster(lights_small, crs = newcrs)
 
+pop_density <- raster("data/population_density/gpw-v4-population-density-rev10_2005_2pt5_min_tif/gpw_v4_population_density_rev10_2005_2pt5_min.tif")
+pop_density_projected <- projectRaster(pop_density, crs = newcrs)
+
+# Extracting the values
 lights_data <- rep(NA, length(coast_hexagons@polygons))
+pop_density_data <- rep(NA, length(coast_hexagons@polygons))
+
 for (i in 1:length(coast_hexagons@polygons)){
-  lights_data[i] <- mean(values(crop(lights_small_projected, coast_hexagons[i])), na.rm=TRUE)
+  lights_data[i] <- mean(values(crop(lights_small_projected, 
+                                     coast_hexagons[i])), na.rm=TRUE)
+  pop_density_data[i] <- mean(values(crop(pop_density_projected, 
+                                          coast_hexagons[i])), na.rm=TRUE)
+  
   print(i)
 }
 
+# Joining and preparing datasets
 sps_df_coastal$lights_data <- lights_data
-
+sps_df_coastal$density_data <- pop_density_data
 lights_reg_data <-  sps_df_coastal@data
-summary(lm(data=lights_reg_data_1, formula=y_pred~lights_data))
 
-lights_reg_data_1 <- lights_reg_data %>% 
-  mutate(lights_data=log(1+lights_data), y_pred=log(y_pred)) 
+lights_reg_data1 <- lights_reg_data %>% 
+  mutate(density=ifelse(!is.nan(density_data),density_data,0))
+lights_reg_data1 <- lights_reg_data %>% filter(!is.nan(density_data))
 
-ggplot(data=lights_reg_data_1, aes(x=y_pred, y=lights_data))+
-  stat_summary_bin(fun.y='mean', bins=200,color='blue',alpha=0.3, size=2, geom='point')+
-  geom_rug(alpha = 0.01) + xlab("") + ylab("")+ggtitle("Nightlights and port suitability")
-
+lights_reg_data1 <- lights_reg_data[!is.nan(lights_reg_data$density_data),]
+lights_reg_data1 <- lights_reg_data[!is.na(lights_reg_data$density_data),]
 
 
-
-
-
-# In what country are the hexagons?
-
+## Generating country fixed effects
 countries <- countries_list@data$ADMIN
 
 ID_country <- c()
@@ -200,10 +206,10 @@ for (j in countries){
   
   ID_country <- c(ID_country, ID_country_tmp)
   country_var <- c(country_var,country_var_tmp)
-
+  
 }
 
-# sa sjekk at man kan joine, lag en ny sa du ikke ma loade igjen
+# Joining the data
 ID_country_vector <- unlist(ID_country)
 country_df <- data.frame(ID_country_vector, country_var)
 
@@ -217,12 +223,6 @@ final<- coast_hexagons[sapply(coast_hexagons@polygons, function(x) x@ID) %in% co
 final_pdf<- SpatialPolygonsDataFrame(final, 
                                      country_df, match.ID = TRUE)
 
-
-plot(final_pdf[final_pdf@data$country_var=="Indonesia",])
-
-
-
-
 sps_df_coastal_df <- sps_df_coastal@data
 sps_df_coastal_df$ID <- row.names(sps_df_coastal_df)
 final_pdf@data$ID <- final_pdf@data$ID_country_vector
@@ -230,10 +230,55 @@ final_pdf_df <- final_pdf@data
 
 sps_df_coastal_df_tomatch <- sps_df_coastal_df[row.names(sps_df_coastal_df)%in%final_pdf_df$ID,]
 
-lights_fe <- sps_df_coastal_df_tomatch %>% full_join(final_pdf_df,by="ID")
+coastal_data_fe <- sps_df_coastal_df_tomatch %>% full_join(final_pdf_df,by="ID")
 
 
-summary(lm(data=lights_fe, formula=y_pred~lights_data + factor(country_var)))
+
+
+
+
+
+
+
+
+
+
+
+summary(lm(data=lights_reg_data1, formula=y_pred~log(1+density_data)))
+
+
+
+summary(lm(data=lights_reg_data_1, formula=y_pred~lights_data))
+
+lights_reg_data_1 <- lights_reg_data %>% 
+  mutate(lights_data=log(1+lights_data), y_pred=log(y_pred)) 
+
+ggplot(data=lights_reg_data1, aes(x=y_pred, y=log(1+density_data)))+
+  stat_summary_bin(fun.y='mean', bins=200,color='blue',alpha=0.3, size=2, geom='point')+
+  geom_rug(alpha = 0.01) + xlab("") + ylab("")+ggtitle("Nightlights and port suitability")
+
+
+
+
+
+star <- stargazer(rf_gdp1, rf_gdp2, rf_gdp3, iv_gdp1, iv_gdp2, iv_gdp3, type="latex", 
+                  title="log(GDP)", star.char = c(""), dep.var.caption = "",style="io",
+                  dep.var.labels.include = FALSE, header = FALSE,column.labels   = c("OLS", "IV"),
+                  column.separate = c(3, 3),notes = "I make this look good!", notes.append = FALSE,
+                  model.names = FALSE, omit = c("continent", "long", "lat", "length", "c_area", "Constant"), 
+                  covariate.labels = c("$\\widehat{Ports}$", "Ports"),font.size="small", 
+                  omit.stat = c("rsq", "f", "ser"), 
+                  add.lines = list(c("Controls","","$\\checkmark$","$\\checkmark$","","$\\checkmark$","$\\checkmark$"),c("Continent FE","","","$\\checkmark$","","","$\\checkmark$")))
+
+
+
+
+
+
+plot(final_pdf[final_pdf@data$country_var=="Indonesia",])
+
+
+summary(lm(data=lights_fe, formula=y_pred~density_data + factor(country_var)))
 
 
 
@@ -241,7 +286,6 @@ summary(lm(data=lights_fe, formula=y_pred~lights_data + factor(country_var)))
 
 
 # add the country it belongs to 
-pop_density <- raster("data/population_density/gpw-v4-population-density-rev10_2005_2pt5_min_tif/gpw_v4_population_density_rev10_2005_2pt5_min.tif")
 
 sps_df_coastal <- SpatialPolygonsDataFrame(coast_hexagons, dataset_final, match.ID = TRUE)
 
@@ -250,7 +294,7 @@ pop_density_projected <- projectRaster(pop_density, crs = newcrs)
 
 lights_data <- rep(NA, length(coast_hexagons@polygons))
 for (i in 1:length(coast_hexagons@polygons)){
-  lights_data[i] <- mean(values(crop(lights_small_projected, coast_hexagons[i])), na.rm=TRUE)
+  lights_data[i] <- mean(values(crop(pop_density_projected, coast_hexagons[i])), na.rm=TRUE)
   print(i)
 }
 
