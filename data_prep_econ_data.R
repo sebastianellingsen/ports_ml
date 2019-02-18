@@ -218,7 +218,8 @@ country_df <- country_df  %>%
 
 row.names(country_df) <- country_df$ID_country_vector
 
-final<- coast_hexagons[sapply(coast_hexagons@polygons, function(x) x@ID) %in% country_df$ID_country]
+final<- coast_hexagons[sapply(coast_hexagons@polygons, 
+                              function(x) x@ID) %in% country_df$ID_country]
 
 final_pdf<- SpatialPolygonsDataFrame(final, 
                                      country_df, match.ID = TRUE)
@@ -236,7 +237,29 @@ coastal_data_fe <- sps_df_coastal_df_tomatch %>% full_join(final_pdf_df,by="ID")
 
 
 
+## Analysis
+library(plm)
+library(broom)
+library(lmtest)
+library(stargazer)
 
+lm_fixed <- plm(y_pred ~ log(1+density_data), data = coastal_data_fe, 
+                index = c("country_var"), model = "within")
+
+m1 <- coeftest(lm_fixed, vcov=vcovHC(lm_fixed, type="HC1", cluster="group")) %>% tidy
+
+robust_std <- function(group, model){
+  G <- length(unique(group))
+  N <- length(group)
+  dfa <- (G/(G - 1)) * (N - 1)/model$df.residual
+  coeftest(model, vcov=function(x) dfa*vcovHC(x, cluster="group", type="HC0"))
+}
+
+robust_std(coastal_data_fe$country_var,lm_fixed)[2]
+
+se1 <- robust_std(coastal_data_fe$country_var,lm_fixed)[2]
+stargazer(lm_fixed,se=robust_std(coastal_data_fe$country_var,lm_fixed)[2], type="text")
+stargazer(lm_fixed, type="text")
 
 
 
