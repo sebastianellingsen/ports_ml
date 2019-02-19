@@ -239,42 +239,90 @@ coastal_data_fe <- sps_df_coastal_df_tomatch %>% full_join(final_pdf_df,by="ID")
 
 ## Analysis
 library(plm)
-library(broom)
-library(lmtest)
 library(stargazer)
+library(sandwich)
+library(lmtest) 
 
-lm_fixed <- plm(y_pred ~ log(1+density_data), data = coastal_data_fe, 
-                index = c("country_var"), model = "within")
-
-m1 <- coeftest(lm_fixed, vcov=vcovHC(lm_fixed, type="HC1", cluster="group")) %>% tidy
-
+## Clustering standard errors
 robust_std <- function(group, model){
   G <- length(unique(group))
   N <- length(group)
   dfa <- (G/(G - 1)) * (N - 1)/model$df.residual
-  coeftest(model, vcov=function(x) dfa*vcovHC(x, cluster="group", type="HC0"))
+  coeftest(model, vcov=function(x) dfa*vcovHC(x, cluster="group", type="HC0"))[2]
 }
 
-robust_std(coastal_data_fe$country_var,lm_fixed)[2]
+# Models
+m1 <- lm(log(1+density_data)~ (as.factor(y)), data = coastal_data_fe)
+m2 <- plm(log(1+density_data)~ (as.factor(y)), data = coastal_data_fe, 
+          index = c("country_var"), model = "within")
+m3 <- lm(log(1+lights_data)~ (as.factor(y)), data = coastal_data_fe)
+m4 <- plm(log(1+lights_data)~ (as.factor(y)), data = coastal_data_fe, 
+          index = c("country_var"), model = "within")
 
-se1 <- robust_std(coastal_data_fe$country_var,lm_fixed)[2]
-stargazer(lm_fixed,se=robust_std(coastal_data_fe$country_var,lm_fixed)[2], type="text")
-stargazer(lm_fixed, type="text")
+# Adjust standard errors
+rse1 <- sqrt(diag(vcovHC(m1, type = "HC1")))
+rse2 <- sqrt(diag(vcovHC(m2, type = "HC1")))
+rse3 <- sqrt(diag(vcovHC(m4, type = "HC1")))
+rse4 <- sqrt(diag(vcovHC(m4, type = "HC1")))
+
+# Adjust F statistic 
+#wald_results <- waldtest(output, vcov = cov1)
+stargazer(m1, m2, m3, m4, type = "text",
+          se        = list(rse1, rse2, rse3, rse4),
+          omit.stat = "f")
+          
+star <- stargazer(m1, m2, m3, m4, type="text", 
+                  se = list(rse1, rse2, rse3, rse4),
+                  title ="Ports, population, and night lights ", 
+                  star.char = c(""), 
+                  dep.var.caption = "",
+                  style = "io",
+                  dep.var.labels.include = FALSE, 
+                  header = FALSE,
+                  column.separate = c(3, 3),
+                  notes = "I make this look good!", 
+                  notes.append = FALSE,
+                  model.names = FALSE, 
+                  omit = c("continent", "long", "lat", "length", "c_area", 
+                           "Constant"), 
+                  covariate.labels = c("Pop. density", "Night lights"),
+                  font.size ="small", 
+                  omit.stat = c("rsq", "f", "ser"), 
+                  add.lines = list( c("Country FE","","$\\checkmark$","",
+                                      "$\\checkmark$")))
+
+          
+
+m1 <- lm(y_pred ~ log(1+density_data), data = coastal_data_fe)
+robust_std(coastal_data_fe$country_var,m1)
 
 
 
+library(AER)
+
+remove <- c("Åland", "Albania", "Australia", "Canada", "Denmark", "Norway", 
+            "Sweden", "Germany","France", "Greenland", "Iceland", "Italy", 
+            "Spain", "Russia", "Greece","Japan", "New Zealand", "Ukraine", 
+            "United Kingdom", "United States of America", "Finland", "Poland",
+            "Netherlands", "Portugal", "Croatia", "Romania", "Ireland", 
+            "Lithuania","Estonia", "Bulgaria", "Montenegro", "Belgium", 
+            "Isle of Man", "Latvia", "Jersey", "Guernsey", "Cyprus", "N. Cyprus")
+
+coastal_data_fe1 <- coastal_data_fe %>% mutate(pred=ifelse(y_pred>=1.6,1,0)) %>% 
+  filter(!(country_var%in%remove))
 
 
+summary(plm(density_data~as.factor(y),index = c("country_var"), model = "within",  
+            data = coastal_data_fe1))
+iv_gdp3 <- ivreg(density_data~ y +factor(country_var) | y_pred  +factor(country_var), data=coastal_data_fe1)
+summary(iv_gdp3)
+
+summary(lm(as.numeric(y) ~ pred, data = coastal_data_fe1))
 
 
-summary(lm(data=lights_reg_data1, formula=y_pred~log(1+density_data)))
+rse1 <- sqrt(diag(vcovHC(iv_gdp3, type = "HC1")))[2]
 
 
-
-summary(lm(data=lights_reg_data_1, formula=y_pred~lights_data))
-
-lights_reg_data_1 <- lights_reg_data %>% 
-  mutate(lights_data=log(1+lights_data), y_pred=log(y_pred)) 
 
 ggplot(data=lights_reg_data1, aes(x=y_pred, y=log(1+density_data)))+
   stat_summary_bin(fun.y='mean', bins=200,color='blue',alpha=0.3, size=2, geom='point')+
@@ -284,52 +332,19 @@ ggplot(data=lights_reg_data1, aes(x=y_pred, y=log(1+density_data)))+
 
 
 
-star <- stargazer(rf_gdp1, rf_gdp2, rf_gdp3, iv_gdp1, iv_gdp2, iv_gdp3, type="latex", 
-                  title="log(GDP)", star.char = c(""), dep.var.caption = "",style="io",
-                  dep.var.labels.include = FALSE, header = FALSE,column.labels   = c("OLS", "IV"),
-                  column.separate = c(3, 3),notes = "I make this look good!", notes.append = FALSE,
-                  model.names = FALSE, omit = c("continent", "long", "lat", "length", "c_area", "Constant"), 
-                  covariate.labels = c("$\\widehat{Ports}$", "Ports"),font.size="small", 
-                  omit.stat = c("rsq", "f", "ser"), 
-                  add.lines = list(c("Controls","","$\\checkmark$","$\\checkmark$","","$\\checkmark$","$\\checkmark$"),c("Continent FE","","","$\\checkmark$","","","$\\checkmark$")))
-
-
-
-
-
-
-plot(final_pdf[final_pdf@data$country_var=="Indonesia",])
-
-
-summary(lm(data=lights_fe, formula=y_pred~density_data + factor(country_var)))
-
-
-
-# Population density 
-
-
-# add the country it belongs to 
-
-sps_df_coastal <- SpatialPolygonsDataFrame(coast_hexagons, dataset_final, match.ID = TRUE)
-
-
-pop_density_projected <- projectRaster(pop_density, crs = newcrs)
-
-lights_data <- rep(NA, length(coast_hexagons@polygons))
-for (i in 1:length(coast_hexagons@polygons)){
-  lights_data[i] <- mean(values(crop(pop_density_projected, coast_hexagons[i])), na.rm=TRUE)
-  print(i)
-}
-
-sps_df_coastal$lights_data <- lights_data
-
-
 
 
 
   
   
   
+
+
+
+
+
+
+
 
 
 
