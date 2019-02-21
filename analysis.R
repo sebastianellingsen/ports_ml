@@ -11,7 +11,7 @@
 theme_set(theme_bw() + theme(panel.grid.minor = element_line(colour = "white", size = 0.5),
                              panel.grid.major = element_line(colour = "white", size = 0.2)))
 
-library(stargazer)
+library(stargazer) 
 # Summary statistics
 combined %>% select(-year) %>% 
   as.data.frame%>% stargazer(type="text",
