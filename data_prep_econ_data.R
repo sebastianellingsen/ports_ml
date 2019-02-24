@@ -17,8 +17,10 @@ row.names(dataset_final) <- row.names(data)
 sps_df <- SpatialPolygonsDataFrame(hexagons, dataset_final, match.ID = TRUE)
 
 
+#######################################
+## Generating the country level data ##
+#######################################
 
-## Generating country level dataset
 countries_list <- countries10[countries10$TYPE=="Sovereign country"|countries10$TYPE=="Country",]
 
 n_harbors <- rep(0, nrow(countries_list@data))
@@ -52,11 +54,7 @@ for (i in countries_list@data$SOVEREIGNT){
 countries_list@data$long <- long
 countries_list@data$lat <- lat
 
-
-#######################################
-## Generating the country level data ##
-#######################################
-
+## Adding controls
 if (!require(pacman)) install.packages("pacman")
 p_load(readxl, naniar, countrycode)
 
@@ -110,8 +108,6 @@ coastline_data$country_code <- sapply(coastline_data$country,
                                    function(x) countrycode(x, 'country.name', 'iso3c'))
 coastline_data <- coastline_data %>% filter(!is.na(country_code))
 
-
-
 # Combining datasets
 combined <- inner_join(econ_data, harbor_data, by = "country_code") %>% 
   inner_join(polity_data, by = c("country_code")) %>% 
@@ -128,7 +124,10 @@ combined <- inner_join(econ_data, harbor_data, by = "country_code") %>%
 
 
 
-## Preparing panel of night lights and population density data
+#######################################
+## Generating the country level data ##
+#######################################
+
 # Preparing coast data 
 dataset <- data_pred %>%
   mutate_all(type.convert) %>%
@@ -149,10 +148,10 @@ sps_df_coastal <- SpatialPolygonsDataFrame(coast_hexagons, dataset_final,
 
 # Loading, projecting and aggregating raster files 
 lights <- raster("data/nightlights/F182010.v4/F182010.v4d_web.stable_lights.avg_vis.tif")
-lights_small <- aggregate(lights, 6)
+lights_small <- aggregate(lights, 2)
 lights_small_projected <- projectRaster(lights_small, crs = newcrs)
 
-pop_density <- raster("data/population_density/gpw-v4-population-density-rev10_2005_2pt5_min_tif/gpw_v4_population_density_rev10_2005_2pt5_min.tif")
+pop_density <- raster("data/population_density/gpw-v4-population-density-rev10_2005_30_sec_tif/gpw_v4_population_density_rev10_2005_30_sec.tif")
 pop_density_projected <- projectRaster(pop_density, crs = newcrs)
 
 # Extracting the values
@@ -171,26 +170,31 @@ for (i in 1:length(coast_hexagons@polygons)){
 # Joining and preparing datasets
 sps_df_coastal$lights_data <- lights_data
 sps_df_coastal$density_data <- pop_density_data
-lights_reg_data <-  sps_df_coastal@data
-
-lights_reg_data1 <- lights_reg_data %>% 
-  mutate(density=ifelse(!is.nan(density_data),density_data,0))
-lights_reg_data1 <- lights_reg_data %>% filter(!is.nan(density_data))
-
-lights_reg_data1 <- lights_reg_data[!is.nan(lights_reg_data$density_data),]
-lights_reg_data1 <- lights_reg_data[!is.na(lights_reg_data$density_data),]
-
 
 ## Generating country fixed effects
 countries <- countries_list@data$ADMIN
 
 ID_country <- c()
 country_var <- c()
+continent_var <- c()
+income_group_var <- c()
 country_logical <- rep(NA, length(coast_hexagons@polygons))
 
-#countries <- c("Denmark", "Germany", "Brazil")
 
-for (j in countries){
+## This section adds fixed effects 
+
+# defining the sample
+remove <- c("Åland", "Albania", "Australia", "Canada", "Denmark", "Norway", 
+            "Sweden", "Germany","France", "Greenland", "Iceland", "Italy", 
+            "Spain", "Russia", "Greece","Japan", "New Zealand", "Ukraine", 
+            "United Kingdom", "United States of America", "Finland", "Poland",
+            "Netherlands", "Portugal", "Croatia", "Romania", "Ireland", 
+            "Lithuania","Estonia", "Bulgaria", "Montenegro", "Belgium", 
+            "Isle of Man", "Latvia", "Jersey", "Guernsey", "Cyprus", "N. Cyprus")
+
+countries_list1 <- countries_list[!(countries_list@data$ADMIN%in%remove),]
+
+for (j in countries_list1@data$ADMIN){
   
   country <- countries10[countries10$ADMIN==j,]
   
@@ -203,15 +207,20 @@ for (j in countries){
   country_tmp <- coast_hexagons[country_logical]
   ID_country_tmp <- sapply(country_tmp@polygons, function(x) x@ID)
   country_var_tmp <- rep(country@data$NAME, length(ID_country_tmp))
+  income_group_var_tmp <- rep(country@data$INCOME_GRP, length(ID_country_tmp))
+  continent_var_tmp <- rep(country@data$CONTINENT, length(ID_country_tmp))
   
   ID_country <- c(ID_country, ID_country_tmp)
   country_var <- c(country_var,country_var_tmp)
-  
+  income_group_var <- c(income_group_var,income_group_var_tmp)
+  continent_var <- c(continent_var,continent_var_tmp)
 }
 
-# Joining the data
+
+## Joining the data
 ID_country_vector <- unlist(ID_country)
-country_df <- data.frame(ID_country_vector, country_var)
+country_df <- data.frame(ID_country_vector, country_var, 
+                         income_group_var, continent_var)
 
 country_df <- country_df  %>% 
   distinct(ID_country_vector, .keep_all = TRUE)
@@ -231,85 +240,142 @@ final_pdf_df <- final_pdf@data
 
 sps_df_coastal_df_tomatch <- sps_df_coastal_df[row.names(sps_df_coastal_df)%in%final_pdf_df$ID,]
 
-coastal_data_fe <- sps_df_coastal_df_tomatch %>% full_join(final_pdf_df,by="ID")
+coastal_data_fe <- sps_df_coastal_df_tomatch %>% 
+  full_join(final_pdf_df,by="ID") %>% 
+  mutate(y_p=ifelse(y_pred>=1.65,1,0)) %>% 
+  filter(continent_var!="Europe", continent_var!="Oceania")
 
 
 
 
 
-## Analysis
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Preliminary analysis
 library(plm)
 library(stargazer)
 library(sandwich)
 library(lmtest) 
+library(AER)
 
 ## Clustering standard errors
 robust_std <- function(group, model){
   G <- length(unique(group))
   N <- length(group)
   dfa <- (G/(G - 1)) * (N - 1)/model$df.residual
-  coeftest(model, vcov=function(x) dfa*vcovHC(x, cluster="group", type="HC0"))[2]
+  coeftest(model, 
+           vcov=function(x) dfa*vcovHC(x, cluster="group", 
+                                       type="HC0"))[, "Std. Error"]
 }
 
-# Models
-m1 <- lm(log(1+density_data)~ (as.factor(y)), data = coastal_data_fe)
-m2 <- plm(log(1+density_data)~ (as.factor(y)), data = coastal_data_fe, 
-          index = c("country_var"), model = "within")
-m3 <- lm(log(1+lights_data)~ (as.factor(y)), data = coastal_data_fe)
-m4 <- plm(log(1+lights_data)~ (as.factor(y)), data = coastal_data_fe, 
-          index = c("country_var"), model = "within")
+# Models: Population density
+fs1 <- lm(data=coastal_data_fe, formula = as.numeric(y) ~ y_p)
+se_fs1 <- robust_std(coastal_data_fe$country_var, fs1)
 
-# Adjust standard errors
-rse1 <- sqrt(diag(vcovHC(m1, type = "HC1")))
-rse2 <- sqrt(diag(vcovHC(m2, type = "HC1")))
-rse3 <- sqrt(diag(vcovHC(m4, type = "HC1")))
-rse4 <- sqrt(diag(vcovHC(m4, type = "HC1")))
+fs2 <- lm(data=coastal_data_fe, formula = as.numeric(y) ~ y_p +factor(country_var))
+se_fs2 <- robust_std(coastal_data_fe$country_var, fs2)
+
+m1 <- lm(data=coastal_data_fe, formula = (density_data) ~ y +factor(country_var))
+se_m1 <- robust_std(coastal_data_fe$country_var, m1)
+
+m2 <- lm(data=coastal_data_fe, formula = (density_data) ~ y_p+factor(country_var))
+se_m2 <- robust_std(coastal_data_fe$country_var, m2)
+
+iv1 <- ivreg((density_data)~ y +factor(country_var) | y_p  +
+                   factor(country_var), data=coastal_data_fe)
+se_iv1 <- robust_std(coastal_data_fe$country_var, iv1)
+
 
 # Adjust F statistic 
 #wald_results <- waldtest(output, vcov = cov1)
-stargazer(m1, m2, m3, m4, type = "text",
-          se        = list(rse1, rse2, rse3, rse4),
-          omit.stat = "f")
+star <- stargazer(fs1,fs2, m2, m1,iv1, type = "text",
+          se        = list(se_fs1, se_fs2,se_m2, se_m1, se_iv1),
+          omit.stat = c("rsq", "f", "ser"),
+          header = FALSE,
+          column.labels   = c("OLS", "IV"),
+          column.separate = c(4, 1),
+          dep.var.labels.include = TRUE,
+          model.names = FALSE,
+          star.char = c(""), 
+          dep.var.labels=c("Ports","Pop. density"),
+          style="io",
+          font.size="small",
+          digits = 2,
+          covariate.labels = c("$\\widehat{Ports}$", "Ports"),
+          omit=c("country_var","year","Constant"))
           
-star <- stargazer(m1, m2, m3, m4, type="text", 
-                  se = list(rse1, rse2, rse3, rse4),
-                  title ="Ports, population, and night lights ", 
-                  star.char = c(""), 
-                  dep.var.caption = "",
-                  style = "io",
-                  dep.var.labels.include = FALSE, 
+
+note.latex <- "\\multicolumn{6}{c} {\\parbox[c]{11cm}{\\textit{Notes:} Logistic regression. Dependent variable: an indicator varible ... AND Some very long Logistic regression. Dependent variable: an indicator varible ... AND Some very long Logistic regression. Dependent variable: an indicator varible ... AND Some very long Logistic regression. Dependent variable: an indicator varible ... AND Some very long and interesting comment.}} \\\\"
+star[grepl("Note",star)] <- note.latex
+cat (star, sep = "\n")
+
+          
+# Models: Night lights
+fs1 <- lm(data=coastal_data_fe, formula = as.numeric(y) ~ y_p)
+se_fs1 <- robust_std(coastal_data_fe$country_var, fs1)
+
+fs2 <- lm(data=coastal_data_fe, formula = as.numeric(y) ~ y_p +factor(country_var))
+se_fs2 <- robust_std(coastal_data_fe$country_var, fs2)
+
+m1 <- lm(data=coastal_data_fe, formula = lights_data ~ y +factor(country_var))
+se_m1 <- robust_std(coastal_data_fe$country_var, m1)
+
+m2 <- lm(data=coastal_data_fe, formula = lights_data ~ y_p+factor(country_var))
+se_m2 <- robust_std(coastal_data_fe$country_var, m2)
+
+iv1 <- ivreg(lights_data~ y +factor(country_var) | y_p  +
+               factor(country_var), data=coastal_data_fe)
+se_iv1 <- robust_std(coastal_data_fe$country_var, iv1)
+
+
+# Adjust F statistic 
+#wald_results <- waldtest(output, vcov = cov1)
+star <- stargazer(fs1,fs2,m2, m1,iv1, type = "text",
+                  se        = list(se_fs1, se_fs2,se_m2, se_m1, se_iv1),
+                  omit.stat = c("rsq", "f", "ser"),
                   header = FALSE,
-                  column.separate = c(3, 3),
-                  notes = "I make this look good!", 
-                  notes.append = FALSE,
-                  model.names = FALSE, 
-                  omit = c("continent", "long", "lat", "length", "c_area", 
-                           "Constant"), 
-                  covariate.labels = c("Pop. density", "Night lights"),
-                  font.size ="small", 
-                  omit.stat = c("rsq", "f", "ser"), 
-                  add.lines = list( c("Country FE","","$\\checkmark$","",
-                                      "$\\checkmark$")))
-
-          
-
-m1 <- lm(y_pred ~ log(1+density_data), data = coastal_data_fe)
-robust_std(coastal_data_fe$country_var,m1)
+                  column.labels   = c("OLS", "IV"),
+                  column.separate = c(4, 1),
+                  dep.var.labels.include = TRUE,
+                  model.names = FALSE,
+                  star.char = c(""), 
+                  dep.var.labels=c("Ports","Night lights"),
+                  style="io",
+                  font.size="small",
+                  digits = 2,
+                  covariate.labels = c("$\\widehat{Ports}$", "Ports"),
+                  omit=c("country_var","year","Constant"))
 
 
+note.latex <- "\\multicolumn{6}{c} {\\parbox[c]{11cm}{\\textit{Notes:} Logistic regression. Dependent variable: an indicator varible ... AND Some very long Logistic regression. Dependent variable: an indicator varible ... AND Some very long Logistic regression. Dependent variable: an indicator varible ... AND Some very long Logistic regression. Dependent variable: an indicator varible ... AND Some very long and interesting comment.}} \\\\"
+star[grepl("Note",star)] <- note.latex
+cat (star, sep = "\n")
 
-library(AER)
-
-remove <- c("Åland", "Albania", "Australia", "Canada", "Denmark", "Norway", 
-            "Sweden", "Germany","France", "Greenland", "Iceland", "Italy", 
-            "Spain", "Russia", "Greece","Japan", "New Zealand", "Ukraine", 
-            "United Kingdom", "United States of America", "Finland", "Poland",
-            "Netherlands", "Portugal", "Croatia", "Romania", "Ireland", 
-            "Lithuania","Estonia", "Bulgaria", "Montenegro", "Belgium", 
-            "Isle of Man", "Latvia", "Jersey", "Guernsey", "Cyprus", "N. Cyprus")
-
-coastal_data_fe1 <- coastal_data_fe %>% mutate(pred=ifelse(y_pred>=1.6,1,0)) %>% 
-  filter(!(country_var%in%remove))
 
 
 summary(plm(density_data~as.factor(y),index = c("country_var"), model = "within",  
@@ -322,19 +388,20 @@ summary(lm(as.numeric(y) ~ pred, data = coastal_data_fe1))
 
 rse1 <- sqrt(diag(vcovHC(iv_gdp3, type = "HC1")))[2]
 
+m1 <- lm(formula = y ~factor(country_var), data = coastal_data_fe1)
+m2 <- lm(formula = y_pred ~  factor(country_var), data = coastal_data_fe1)
 
+coastal_data_fe1$fvalues <- as.numeric(coastal_data_fe1$y)-predict(m1,coastal_data_fe1)
+coastal_data_fe1$fvalues_pred <- coastal_data_fe1$y_pred-predict(m2,coastal_data_fe1)
 
-ggplot(data=lights_reg_data1, aes(x=y_pred, y=log(1+density_data)))+
-  stat_summary_bin(fun.y='mean', bins=200,color='blue',alpha=0.3, size=2, geom='point')+
-  geom_rug(alpha = 0.01) + xlab("") + ylab("")+ggtitle("Nightlights and port suitability")
+ggplot(data=coastal_data_fe1, aes(x=(fvalues_pred), y=( fvalues)))+ 
+  geom_rug(alpha = 0.01) + xlab("") + ylab("")+ggtitle("Nightlights and port suitability")+
+  geom_smooth()+
 
+  stat_summary_bin(fun.y='mean', bins=500,color='blue',alpha=0.5, size=2, geom='point')
+    
 
-
-
-
-
-
-
+# first stage table, cross section table, validation using night lights table
   
   
   
@@ -344,86 +411,4 @@ ggplot(data=lights_reg_data1, aes(x=y_pred, y=log(1+density_data)))+
 
 
 
-
-
-
-
-# Share of gpd
-commodity_data <- read_excel("data/API_TX.VAL.MMTL.ZS.UN_DS2_en_excel_v2_10404372.xls", skip=3) %>% 
-  dplyr::select(-"Indicator Name", -"Indicator Code", -"Country Code") %>% 
-  gather("year", "share", 2:60) %>% 
-  filter(year>=1997, !is.na(share)) 
-
-
-
-
-## Commodity prices
-commodity_data <- read_excel("data/CMOHistoricalDataAnnual.xlsx", sheet="Annual Prices (Real)",skip=8) %>% 
-  dplyr::select(X__1,KSILVER,KPLATINUM,KGOLD,KZinc,KNICKEL,KTin,KLEAD,
-                KCOPPER,KIRON_ORE,KALUMINUM,KPOTASH) %>% 
-  rename(year=X__1, Silver=KSILVER,Platinum=KPLATINUM,Gold=KGOLD,
-         Zinc=KZinc,Nickel=KNICKEL,Tin=KTin,Lead=KLEAD,Copper=KCOPPER,
-         Iron=KIRON_ORE,Aluminum=KALUMINUM,Potash=KPOTASH) %>% 
-  filter(year>=1990, year<=2015) %>% 
-  gather("year metal", "price", 2:12) 
-  
-colnames(commodity_data)[2] <- "metal"
-commodity_data$metal <- as.factor(commodity_data$metal)
-
-commodity_data <- commodity_data %>% 
-  group_by(metal) %>% 
-  mutate(price_1990=ifelse(year==1990,price,0)) %>% 
-  mutate(price_1990=max(price_1990)) %>% 
-  ungroup() %>% 
-  mutate(price=price/price_1990)
-
-ggplot(data=commodity_data, aes(x=year, y=price,color=metal))+geom_line(alpha=0.9) +
-  xlab("") + ylab("") +
-  ggtitle("Prices (normalized)") +
-  geom_vline(xintercept=2003, linetype = "longdash",alpha=0.6)+
-  theme(legend.title = element_blank()) 
-
-
-
-
-lead og potash mangler
-## Commodity production
-
-metals <- c("aluminum", "copper", "gold", "iron_ore", "nickel", "platinum",
-            "silver", "tin", "zinc")
-
-for (m in metals){
-  path <- paste(paste("data/commodities/production/",m,sep = "")
-                ,"/statisticsExport (1).xlsx" ,sep = "")
-  #metal <- read_excel(path, skip=1)
-  print(path)
-}
-
-
-metal <- read_excel("data/commodities/production/iron_ore/statisticsExport (2).xlsx", skip=1) %>% 
-  rename("2001"=X__1,"2002"=X__2,"2003"=X__3,"2004"=X__4,"2005"=X__5,"2006"=X__6,
-         "2007"=X__7,"2008"=X__8,"2009"=X__9,"2010"=X__10, "country"="\n\tCountry") %>% 
-  dplyr::select(country, "2001","2002","2003","2004","2005","2006","2007","2008",
-                "2009","2010") %>% 
-  slice(1:55) %>% 
-  gather("country year", "tonnes", 2:11) %>% 
-  rename("year"="country year") %>% 
-  filter(!is.na(tonnes)) %>% 
-  mutate(country=as.factor(country),year=as.numeric(year))
-  
-metal_normalized <- metal %>% 
-  group_by(country) %>% 
-  mutate(tonnes_1990=ifelse(year==2001,tonnes,0)) %>% 
-  mutate(tonnes_1990=max(tonnes_1990)) %>% 
-  ungroup() %>% 
-  mutate(tonnes=tonnes/tonnes_1990)
-
-
-
-
-ggplot(data=metal_normalized, aes(x=year, y=tonnes,color=country))+geom_line() +
-  xlab("") + ylab("") +
-  ggtitle("Prices (normalized)") +
-  geom_vline(xintercept=2003, linetype = "longdash",alpha=0.6)+
-  theme(legend.title = element_blank()) 
 
