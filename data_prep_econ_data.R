@@ -149,19 +149,32 @@ sps_df_coastal <- SpatialPolygonsDataFrame(coast_hexagons, dataset_final,
 # Loading, projecting and aggregating raster files 
 lights <- raster("data/nightlights/F182010.v4/F182010.v4d_web.stable_lights.avg_vis.tif")
 lights_small <- aggregate(lights, 2)
-lights_small_projected <- projectRaster(lights_small, crs = newcrs)
+lights_small_projected <- projectRaster(lights_small, crs = newcrs, method = "bilinear")
 
-pop_density <- raster("data/population_density/gpw-v4-population-density-rev10_2005_30_sec_tif/gpw_v4_population_density_rev10_2005_30_sec.tif")
-pop_density_projected <- projectRaster(pop_density, crs = newcrs)
+pop_density_2005 <- raster("data/population_density/gpw-v4-population-density-rev10_2005_30_sec_tif/gpw_v4_population_density_rev10_2005_30_sec.tif")
+pop_density_projected_2005 <- projectRaster(pop_density_2005, crs = newcrs, method = "bilinear")
 
 # Extracting the values
 lights_data <- rep(NA, length(coast_hexagons@polygons))
-pop_density_data <- rep(NA, length(coast_hexagons@polygons))
+pop_density_data_2000 <- rep(NA, length(coast_hexagons@polygons))
+pop_density_data_2005 <- rep(NA, length(coast_hexagons@polygons))
+pop_density_data_2010 <- rep(NA, length(coast_hexagons@polygons))
+pop_density_data_2015 <- rep(NA, length(coast_hexagons@polygons))
+pop_density_data_2020 <- rep(NA, length(coast_hexagons@polygons))
 
 for (i in 1:length(coast_hexagons@polygons)){
   lights_data[i] <- mean(values(crop(lights_small_projected, 
                                      coast_hexagons[i])), na.rm=TRUE)
-  pop_density_data[i] <- mean(values(crop(pop_density_projected, 
+  
+  pop_density_data_2000[i] <- mean(values(crop(pop_density_data_2000, 
+                                          coast_hexagons[i])), na.rm=TRUE)
+  pop_density_data_2005[i] <- mean(values(crop(pop_density_data_2005, 
+                                          coast_hexagons[i])), na.rm=TRUE)
+  pop_density_data_2010[i] <- mean(values(crop(pop_density_data_2010, 
+                                          coast_hexagons[i])), na.rm=TRUE)
+  pop_density_data_2015[i] <- mean(values(crop(pop_density_data_2015, 
+                                          coast_hexagons[i])), na.rm=TRUE)
+  pop_density_data_2020[i] <- mean(values(crop(pop_density_data_2020, 
                                           coast_hexagons[i])), na.rm=TRUE)
   
   print(i)
@@ -243,7 +256,8 @@ sps_df_coastal_df_tomatch <- sps_df_coastal_df[row.names(sps_df_coastal_df)%in%f
 coastal_data_fe <- sps_df_coastal_df_tomatch %>% 
   full_join(final_pdf_df,by="ID") %>% 
   mutate(y_p=ifelse(y_pred>=1.65,1,0)) %>% 
-  filter(continent_var!="Europe", continent_var!="Oceania")
+  filter(continent_var!="Europe", continent_var!="Oceania",
+         continent_var=="Africa")
 
 
 
@@ -300,13 +314,13 @@ se_fs1 <- robust_std(coastal_data_fe$country_var, fs1)
 fs2 <- lm(data=coastal_data_fe, formula = as.numeric(y) ~ y_p +factor(country_var))
 se_fs2 <- robust_std(coastal_data_fe$country_var, fs2)
 
-m1 <- lm(data=coastal_data_fe, formula = (density_data) ~ y +factor(country_var))
+m1 <- lm(data=coastal_data_fe, formula = log(1+lights_data) ~ y +factor(country_var))
 se_m1 <- robust_std(coastal_data_fe$country_var, m1)
 
-m2 <- lm(data=coastal_data_fe, formula = (density_data) ~ y_p+factor(country_var))
+m2 <- lm(data=coastal_data_fe, formula = log(1+lights_data) ~ y_p+factor(country_var))
 se_m2 <- robust_std(coastal_data_fe$country_var, m2)
 
-iv1 <- ivreg((density_data)~ y +factor(country_var) | y_p  +
+iv1 <- ivreg(log(1+lights_data)~ y +factor(country_var) | y_p  +
                    factor(country_var), data=coastal_data_fe)
 se_iv1 <- robust_std(coastal_data_fe$country_var, iv1)
 
