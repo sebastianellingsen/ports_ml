@@ -193,7 +193,6 @@ continent_var <- c()
 income_group_var <- c()
 country_logical <- rep(NA, length(coast_hexagons@polygons))
 
-
 ## This section adds fixed effects 
 
 # defining the sample
@@ -261,23 +260,28 @@ coastal_data_fe <- sps_df_coastal_df_tomatch %>%
 
 
 
+###########################################################
+## Adding country and continent information to port data ##
+###########################################################
+ports_full <- readOGR("data/WPI_Shapefiles/WPI_Shapefile2010", "WPI")
+ports_full <- spTransform(ports_full, newcrs)
+ports_full@data$nr <- rep(1:3718)
+           
+africa <- countries_list[countries_list@data$CONTINENT=="Africa",]
+buffer <- gBuffer(africa, width = 40)
+ports_logical <- c()
 
+for (j in ports_full@data$nr){
+  port_tmp <- ports_full[ports_full@data$nr==j,]
+  ports_logical[j] <- gIntersects(port_tmp, buffer)==TRUE
+}
+ports_africa <- ports_full[ports_logical,]
+ports_africa_cn <- ports_africa[ports_africa@data$HARBORSIZE!="V",]
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# Final dataset of larger ports
+non_ssa <- c("EG", "LY","IS", "SP", "TS", "AG", "SU", "GI", "MO")
+ports_africa_cn <- ports_africa@data %>% 
+  filter(!(COUNTRY %in% non_ssa), HARBORSIZE!="V")
 
 
 
