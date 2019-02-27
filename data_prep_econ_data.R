@@ -17,116 +17,9 @@ row.names(dataset_final) <- row.names(data)
 sps_df <- SpatialPolygonsDataFrame(hexagons, dataset_final, match.ID = TRUE)
 
 
-#######################################
-## Generating the country level data ##
-#######################################
-
-countries_list <- countries10[countries10$TYPE=="Sovereign country"|countries10$TYPE=="Country",]
-
-n_harbors <- rep(0, nrow(countries_list@data))
-harbors <- rep(0, nrow(countries_list@data))
-
-for (i in countries_list@data$SOVEREIGNT){
-  study_area_country <- countries_list[countries_list$SOVEREIGNT==i,]
-  dataset_country <- gIntersection(sps_df, study_area_country, byid = TRUE)
-  row.names(dataset_country) <- gsub("\\s.*", "", sapply(dataset_country@polygons, function(x) x@ID))
-  sps_df_temp <- sps_df[row.names(sps_df) %in% sapply(dataset_country@polygons, function(x) x@ID), ]
-  
-  n_harbors[which(countries_list@data$SOVEREIGNT==i)] <- sum(ifelse(sps_df_temp@data$y_pred>1.6,1,0))
-  harbors[which(countries_list@data$SOVEREIGNT==i)] <- sum(as.numeric(sps_df_temp@data$y)-1)
-  
-  print(c(i, n_harbors[which(countries_list@data$SOVEREIGNT==i)], harbors[which(countries_list@data$SOVEREIGNT==i)]))
-}
-
-countries_list@data$n_harbors <- n_harbors
-countries_list@data$harbors <- harbors
-countries_list@data$c_area <- area(countries_list)
-
-# Coordinated in the current CRS
-long <- rep(0, nrow(countries_list@data))
-lat <- rep(0, nrow(countries_list@data))
-
-for (i in countries_list@data$SOVEREIGNT){
-  long[which(countries_list@data$SOVEREIGNT==i)] <- extent(countries_list[countries_list$SOVEREIGNT==i,])[1]
-  lat[which(countries_list@data$SOVEREIGNT==i)] <- extent(countries_list[countries_list$SOVEREIGNT==i,])[3]
-}
-
-countries_list@data$long <- long
-countries_list@data$lat <- lat
-
-## Adding controls
-if (!require(pacman)) install.packages("pacman")
-p_load(readxl, naniar, countrycode)
-
-# Loading data 
-excel_sheets("data/mpd2018.xlsx")
-excel_sheets("data/Trade_of_Goods.xlsx")
-
-# Trade 
-trade_data <- read_excel("data/Trade_of_Goods.xlsx", skip=5) %>% 
-  dplyr::select(-"Base Year", -"Scale") %>% 
-  replace_with_na_all(condition=~.x=="...") %>% 
-  slice(1:185) %>% 
-  gather("year", "trade",2:167) %>% 
-  filter(year==2010, !is.na(trade)) %>% 
-  mutate(trade=as.numeric(trade), year=as.numeric(year))
-
-country_code <- sapply(trade_data$Country, 
-                       function(x) countrycode(x, 'country.name', 'iso3c'))
-trade_data$country_code <- country_code 
-trade_data <- trade_data[!is.na(trade_data$country_code),]
-
-# PWT data
-econ_data <- read_excel("data/pwt90.xlsx", sheet="Data") %>% 
-  filter(year==2010) %>% 
-  rename(country_code=countrycode)
-
-# Urban population
-urban_data <- read_excel("data/urban_population.xls", sheet="Data", skip=3) %>% 
-  rename(urban="2010", country_code="Country Code") %>% 
-  dplyr::select(country_code, urban)
-
-# Data on ports and harbors
-region <- c("MAC","HKG","GRL","ALA","CUW","SXM","ABW","JEY","GGY","IMN")
-harbor_data <- countries_list@data %>% 
-  mutate(country=SOVEREIGNT, country_code=ISO_A3, continent=CONTINENT) %>% 
-  dplyr::select(n_harbors, harbors, country, c_area, country_code, continent, long, lat) %>% 
-  filter(!(country_code %in% region), country!="Northern Cyprus", country!="Kosovo")
-
-harbor_data[which(harbor_data$country=="Norway"),5] <- "NOR"
-harbor_data[which(harbor_data$country=="France"),5] <- "FRA"
-
-# Polity iv 
-polity_data <- read_excel("data/p4v2017.xls") %>% 
-  dplyr::select(scode, country, year, polity2, democ) %>% filter(year==2010) 
-polity_data$country_code <- sapply(polity_data$country, 
-        function(x) countrycode(x, 'country.name', 'iso3c'))
-
-# Coastline:
-coastline_data <- read_excel("data/coastline.xlsx", col_names=c("country", "length"))
-coastline_data$country_code <- sapply(coastline_data$country, 
-                                   function(x) countrycode(x, 'country.name', 'iso3c'))
-coastline_data <- coastline_data %>% filter(!is.na(country_code))
-
-# Combining datasets
-combined <- inner_join(econ_data, harbor_data, by = "country_code") %>% 
-  inner_join(polity_data, by = c("country_code")) %>% 
-  inner_join(coastline_data, by = c("country_code")) %>%
-  inner_join(urban_data, by = c("country_code")) %>% 
-  filter(length>0) 
-
-
-
-
-
-
-
-
-
-
-#######################################
-## Generating the country level data ##
-#######################################
+##############################################
+## Generating the within country level data ##
+#############################################
 
 # Preparing coast data 
 dataset <- data_pred %>%
@@ -156,24 +49,11 @@ pop_density_projected_2005 <- projectRaster(pop_density_2005, crs = newcrs, meth
 
 # Extracting the values
 lights_data <- rep(NA, length(coast_hexagons@polygons))
-pop_density_data_2000 <- rep(NA, length(coast_hexagons@polygons))
-pop_density_data_2005 <- rep(NA, length(coast_hexagons@polygons))
-pop_density_data_2010 <- rep(NA, length(coast_hexagons@polygons))
-pop_density_data_2015 <- rep(NA, length(coast_hexagons@polygons))
 pop_density_data_2020 <- rep(NA, length(coast_hexagons@polygons))
 
 for (i in 1:length(coast_hexagons@polygons)){
   lights_data[i] <- mean(values(crop(lights_small_projected, 
                                      coast_hexagons[i])), na.rm=TRUE)
-  
-  pop_density_data_2000[i] <- mean(values(crop(pop_density_data_2000, 
-                                          coast_hexagons[i])), na.rm=TRUE)
-  pop_density_data_2005[i] <- mean(values(crop(pop_density_data_2005, 
-                                          coast_hexagons[i])), na.rm=TRUE)
-  pop_density_data_2010[i] <- mean(values(crop(pop_density_data_2010, 
-                                          coast_hexagons[i])), na.rm=TRUE)
-  pop_density_data_2015[i] <- mean(values(crop(pop_density_data_2015, 
-                                          coast_hexagons[i])), na.rm=TRUE)
   pop_density_data_2020[i] <- mean(values(crop(pop_density_data_2020, 
                                           coast_hexagons[i])), na.rm=TRUE)
   
@@ -282,6 +162,123 @@ ports_africa_cn <- ports_africa[ports_africa@data$HARBORSIZE!="V",]
 non_ssa <- c("EG", "LY","IS", "SP", "TS", "AG", "SU", "GI", "MO")
 ports_africa_cn <- ports_africa@data %>% 
   filter(!(COUNTRY %in% non_ssa), HARBORSIZE!="V")
+
+
+
+
+
+
+
+
+
+
+#######################################
+## Generating the country level data ##
+#######################################
+
+countries_list <- countries10[countries10$TYPE=="Sovereign country"|countries10$TYPE=="Country",]
+
+n_harbors <- rep(0, nrow(countries_list@data))
+harbors <- rep(0, nrow(countries_list@data))
+
+for (i in countries_list@data$SOVEREIGNT){
+  study_area_country <- countries_list[countries_list$SOVEREIGNT==i,]
+  dataset_country <- gIntersection(sps_df, study_area_country, byid = TRUE)
+  row.names(dataset_country) <- gsub("\\s.*", "", sapply(dataset_country@polygons, function(x) x@ID))
+  sps_df_temp <- sps_df[row.names(sps_df) %in% sapply(dataset_country@polygons, function(x) x@ID), ]
+  
+  n_harbors[which(countries_list@data$SOVEREIGNT==i)] <- sum(ifelse(sps_df_temp@data$y_pred>1.6,1,0))
+  harbors[which(countries_list@data$SOVEREIGNT==i)] <- sum(as.numeric(sps_df_temp@data$y)-1)
+  
+  print(c(i, n_harbors[which(countries_list@data$SOVEREIGNT==i)], harbors[which(countries_list@data$SOVEREIGNT==i)]))
+}
+
+countries_list@data$n_harbors <- n_harbors
+countries_list@data$harbors <- harbors
+countries_list@data$c_area <- area(countries_list)
+
+# Coordinated in the current CRS
+long <- rep(0, nrow(countries_list@data))
+lat <- rep(0, nrow(countries_list@data))
+
+for (i in countries_list@data$SOVEREIGNT){
+  long[which(countries_list@data$SOVEREIGNT==i)] <- extent(countries_list[countries_list$SOVEREIGNT==i,])[1]
+  lat[which(countries_list@data$SOVEREIGNT==i)] <- extent(countries_list[countries_list$SOVEREIGNT==i,])[3]
+}
+
+countries_list@data$long <- long
+countries_list@data$lat <- lat
+
+## Adding controls
+if (!require(pacman)) install.packages("pacman")
+p_load(readxl, naniar, countrycode)
+
+# Loading data 
+excel_sheets("data/mpd2018.xlsx")
+excel_sheets("data/Trade_of_Goods.xlsx")
+
+# Trade 
+trade_data <- read_excel("data/Trade_of_Goods.xlsx", skip=5) %>% 
+  dplyr::select(-"Base Year", -"Scale") %>% 
+  replace_with_na_all(condition=~.x=="...") %>% 
+  slice(1:185) %>% 
+  gather("year", "trade",2:167) %>% 
+  filter(year==2010, !is.na(trade)) %>% 
+  mutate(trade=as.numeric(trade), year=as.numeric(year))
+
+country_code <- sapply(trade_data$Country, 
+                       function(x) countrycode(x, 'country.name', 'iso3c'))
+trade_data$country_code <- country_code 
+trade_data <- trade_data[!is.na(trade_data$country_code),]
+
+# PWT data
+econ_data <- read_excel("data/pwt90.xlsx", sheet="Data") %>% 
+  filter(year==2010) %>% 
+  rename(country_code=countrycode)
+
+# Urban population
+urban_data <- read_excel("data/urban_population.xls", sheet="Data", skip=3) %>% 
+  rename(urban="2010", country_code="Country Code") %>% 
+  dplyr::select(country_code, urban)
+
+# Data on ports and harbors
+region <- c("MAC","HKG","GRL","ALA","CUW","SXM","ABW","JEY","GGY","IMN")
+harbor_data <- countries_list@data %>% 
+  mutate(country=SOVEREIGNT, country_code=ISO_A3, continent=CONTINENT) %>% 
+  dplyr::select(n_harbors, harbors, country, c_area, country_code, continent, long, lat) %>% 
+  filter(!(country_code %in% region), country!="Northern Cyprus", country!="Kosovo")
+
+harbor_data[which(harbor_data$country=="Norway"),5] <- "NOR"
+harbor_data[which(harbor_data$country=="France"),5] <- "FRA"
+
+# Polity iv 
+polity_data <- read_excel("data/p4v2017.xls") %>% 
+  dplyr::select(scode, country, year, polity2, democ) %>% filter(year==2010) 
+polity_data$country_code <- sapply(polity_data$country, 
+                                   function(x) countrycode(x, 'country.name', 'iso3c'))
+
+# Coastline:
+coastline_data <- read_excel("data/coastline.xlsx", col_names=c("country", "length"))
+coastline_data$country_code <- sapply(coastline_data$country, 
+                                      function(x) countrycode(x, 'country.name', 'iso3c'))
+coastline_data <- coastline_data %>% filter(!is.na(country_code))
+
+# Combining datasets
+combined <- inner_join(econ_data, harbor_data, by = "country_code") %>% 
+  inner_join(polity_data, by = c("country_code")) %>% 
+  inner_join(coastline_data, by = c("country_code")) %>%
+  inner_join(urban_data, by = c("country_code")) %>% 
+  filter(length>0) 
+
+
+
+
+
+
+
+
+
+
 
 
 
