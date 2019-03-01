@@ -8,7 +8,8 @@ p_load(tidyverse, sf, raster, tmap, sp, rgdal, rgeos, viridis, ranger, tmaptools
 
 #hexagons_full <- gIntersection(hexagons, study_area, byid = TRUE)
 
-model <- ranger(formula= as.numeric(y)~., data=training_data, num.trees = 4000, mtry = 5)
+model <- ranger(formula= as.numeric(y)~., 
+                data=training_data, num.trees = 4000, mtry = 5)
 prediction <- predict(model, dataset)$predictions
 
 dataset_final <- dataset %>%  dplyr::select(y) %>% mutate(y_pred=prediction)
@@ -44,17 +45,23 @@ lights <- raster("data/nightlights/F182010.v4/F182010.v4d_web.stable_lights.avg_
 lights_small <- aggregate(lights, 2)
 lights_small_projected <- projectRaster(lights_small, crs = newcrs, method = "bilinear")
 
-pop_density_2005 <- raster("data/population_density/gpw-v4-population-density-rev10_2005_30_sec_tif/gpw_v4_population_density_rev10_2005_30_sec.tif")
-pop_density_projected_2005 <- projectRaster(pop_density_2005, crs = newcrs, method = "bilinear")
+pop_density <- raster("data/population_density/gpw-v4-population-density-rev10_2005_30_sec_tif/gpw_v4_population_density_rev10_2005_30_sec.tif")
+crs(pop_density) <- crs("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=")
+pop_density_projected <- projectRaster(pop_density, crs = newcrs, method = "bilinear")
+
+africa_polis <- readOGR("data/population_density/Africapolis_2015_shp/Africapolis.shp", "Africapolis")
+
+
+# problemet er at jeg bruker veldig hoy resolution, last ned litt laver
 
 # Extracting the values
 lights_data <- rep(NA, length(coast_hexagons@polygons))
-pop_density_data_2020 <- rep(NA, length(coast_hexagons@polygons))
+density_data <- rep(NA, length(coast_hexagons@polygons))
 
 for (i in 1:length(coast_hexagons@polygons)){
   lights_data[i] <- mean(values(crop(lights_small_projected, 
                                      coast_hexagons[i])), na.rm=TRUE)
-  pop_density_data_2020[i] <- mean(values(crop(pop_density_data_2020, 
+  density_data[i] <- mean(values(crop(pop_density_data_2020, 
                                           coast_hexagons[i])), na.rm=TRUE)
   
   print(i)
@@ -137,7 +144,6 @@ coastal_data_fe <- sps_df_coastal_df_tomatch %>%
   mutate(y_p=ifelse(y_pred>=1.65,1,0)) %>% 
   filter(continent_var!="Europe", continent_var!="Oceania",
          continent_var=="Africa")
-
 
 
 ###########################################################
@@ -421,6 +427,132 @@ ggplot(data=coastal_data_fe1, aes(x=(fvalues_pred), y=( fvalues)))+
   
   
 
+
+
+
+
+## new measure of market access from the sea
+## Measuring distance from the predicted port area 
+#1. ta landene som man vil se pa hver for seg
+#2. ta en hexagon
+#3. kjor gjennom alle ports og mal avstanden
+#4. velg den minste og fortsett
+
+
+
+
+
+## This section adds fixed effects to the full sample
+
+# defining the sample
+countries_list1 <- countries_list[countries_list@data$CONTINENT=="Africa",]
+
+countries <-  countries_list1@data %>% 
+  filter(!(ADMIN %in% c("Libya","Egypt", "Tunisia", "Algeria", "Morocco")))
+
+ID_country <- c()
+country_var <- c()
+continent_var <- c()
+income_group_var <- c()
+country_logical <- rep(NA, length(hexagons@polygons))
+
+for (j in countries$ADMIN){
+  
+  country <- countries10[countries10$ADMIN==j,]
+  
+  for (i in 1:length(hexagons@polygons)){
+    country_logical[i] <- gIntersects(hexagons[i], country)==TRUE
+    
+    print(c(i/length(hexagons@polygons),country@data$NAME))
+  }
+  
+  country_tmp <- hexagons[country_logical]
+  ID_country_tmp <- sapply(country_tmp@polygons, function(x) x@ID)
+  country_var_tmp <- rep(country@data$NAME, length(ID_country_tmp))
+  income_group_var_tmp <- rep(country@data$INCOME_GRP, length(ID_country_tmp))
+  continent_var_tmp <- rep(country@data$CONTINENT, length(ID_country_tmp))
+  
+  ID_country <- c(ID_country, ID_country_tmp)
+  country_var <- c(country_var,country_var_tmp)
+  income_group_var <- c(income_group_var,income_group_var_tmp)
+  continent_var <- c(continent_var,continent_var_tmp)
+}
+
+# Preparing the files to join
+ID_country_vector <- unlist(ID_country)
+country_df <- data.frame(ID_country_vector, country_var, 
+                         income_group_var, continent_var)
+
+country_df <- country_df  %>% 
+  distinct(ID_country_vector, .keep_all = TRUE)
+
+row.names(country_df) <- country_df$ID_country_vector
+final<- hexagons[sapply(hexagons@polygons, 
+                              function(x) x@ID) %in% country_df$ID_country]
+final_pdf<- SpatialPolygonsDataFrame(final, 
+                                     country_df, match.ID = TRUE)@data
+
+final_pdf$ID <- row.names(final_pdf)
+africa_tmp <- sps_df[row.names(sps_df@data)%in%row.names(final_pdf),]@data
+africa_tmp$ID <- row.names(africa_tmp)
+
+## Joining the data
+africa_df <- africa_tmp %>% full_join(final_pdf,by="ID")
+row.names(africa_df) <- africa_df$ID
+
+final_to_match <- sps_df[row.names(sps_df@data)%in%row.names(final_pdf),]
+africa <- SpatialPolygonsDataFrame(final_to_match,
+                                   africa_df, match.ID = TRUE)
+                                 
+
+
+
+## Measuring distance between grid cells
+distances_predicted <- c()
+distances_actual <- c()
+distance_coast <- c()
+africa@data$yp <- ifelse(africa@data$y_pred>=1.65, 1, 0)
+
+port_cell_actual <- africa[africa@data$y==1,]
+port_cell_predicted <- africa[africa@data$yp==1,]
+counter <- 0
+for (i in row.names(africa@data)){
+
+  cell <- africa[africa@data$ID==i,]
+  distances_actual[i] <- gDistance(cell, port_cell_actual)
+  distances_predicted[i] <- gDistance(cell, port_cell_predicted)
+  distance_coast[i] <- gDistance(cell, coastline10)
+  
+  counter <- counter+1
+  print(counter/length(row.names(africa@data)))
+}
+
+
+africa@data$distances_predicted <- log(distances_predicted+1)
+africa@data$distances_actual <- log(distances_actual+1)
+africa@data$distance_coast <- log(distance_coast+1)
+
+
+kenya <- africa[africa@data$country_var=="Mozambique",]
+
+p1 <- tm_shape(kenya) +  
+  tm_fill(col="distance_coast", palette=plasma(256),n=15) + 
+  tm_layout(frame=TRUE, legend.show=FALSE,bg.color="grey85") 
+
+p2 <- tm_shape(kenya) +  
+  tm_fill(col="distances_actual", palette=plasma(256),n=15) + 
+  tm_layout(frame=TRUE, legend.show=FALSE,bg.color="grey85") 
+
+p3 <- tm_shape(kenya) +  
+  tm_fill(col="distances_predicted", palette=plasma(256),n=15) + 
+  tm_layout(frame=TRUE, legend.show=FALSE,bg.color="grey85") 
+
+print(tmap_arrange(p1,p2,p3))
+
+
+#save(africa,file="africa.Rda")
+
+summary(lm(data=africa, distances_actual~distances_predicted+factor(country_var)))
 
 
 
