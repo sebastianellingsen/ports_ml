@@ -61,9 +61,6 @@ density_data <- rep(NA, length(coast_hexagons@polygons))
 for (i in 1:length(coast_hexagons@polygons)){
   lights_data[i] <- mean(values(crop(lights_small_projected, 
                                      coast_hexagons[i])), na.rm=TRUE)
-  density_data[i] <- mean(values(crop(pop_density_data_2020, 
-                                          coast_hexagons[i])), na.rm=TRUE)
-  
   print(i)
 }
 
@@ -83,15 +80,7 @@ country_logical <- rep(NA, length(coast_hexagons@polygons))
 ## This section adds fixed effects 
 
 # defining the sample
-remove <- c("Åland", "Albania", "Australia", "Canada", "Denmark", "Norway", 
-            "Sweden", "Germany","France", "Greenland", "Iceland", "Italy", 
-            "Spain", "Russia", "Greece","Japan", "New Zealand", "Ukraine", 
-            "United Kingdom", "United States of America", "Finland", "Poland",
-            "Netherlands", "Portugal", "Croatia", "Romania", "Ireland", 
-            "Lithuania","Estonia", "Bulgaria", "Montenegro", "Belgium", 
-            "Isle of Man", "Latvia", "Jersey", "Guernsey", "Cyprus", "N. Cyprus")
 
-countries_list1 <- countries_list[!(countries_list@data$ADMIN%in%remove),]
 
 for (j in countries_list1@data$ADMIN){
   
@@ -421,25 +410,8 @@ ggplot(data=coastal_data_fe1, aes(x=(fvalues_pred), y=( fvalues)))+
 
   stat_summary_bin(fun.y='mean', bins=500,color='blue',alpha=0.5, size=2, geom='point')
     
-
-# first stage table, cross section table, validation using night lights table
   
   
-  
-
-
-
-
-
-## new measure of market access from the sea
-## Measuring distance from the predicted port area 
-#1. ta landene som man vil se pa hver for seg
-#2. ta en hexagon
-#3. kjor gjennom alle ports og mal avstanden
-#4. velg den minste og fortsett
-
-
-
 
 
 ## This section adds fixed effects to the full sample
@@ -512,6 +484,8 @@ distances_predicted <- c()
 distances_actual <- c()
 distance_coast <- c()
 africa@data$yp <- ifelse(africa@data$y_pred>=1.65, 1, 0)
+#ports_1 <- ports[!is.na(ports@data$HARBORSIZE),]
+#ports_1 <- ports_1[ports_1@data$HARBORSIZE!="V",]
 
 port_cell_actual <- africa[africa@data$y==1,]
 port_cell_predicted <- africa[africa@data$yp==1,]
@@ -519,7 +493,7 @@ counter <- 0
 for (i in row.names(africa@data)){
 
   cell <- africa[africa@data$ID==i,]
-  distances_actual[i] <- gDistance(cell, port_cell_actual)
+  distances_actual[i] <- gDistance(cell, ports)
   distances_predicted[i] <- gDistance(cell, port_cell_predicted)
   distance_coast[i] <- gDistance(cell, coastline10)
   
@@ -527,16 +501,74 @@ for (i in row.names(africa@data)){
   print(counter/length(row.names(africa@data)))
 }
 
-
 africa@data$distances_predicted <- log(distances_predicted+1)
 africa@data$distances_actual <- log(distances_actual+1)
 africa@data$distance_coast <- log(distance_coast+1)
+africa@data$distance_coast2 <- log(distance_coast+1)^2
+africa@data$distance_coast3 <- log(distance_coast+1)^3
 
 
-kenya <- africa[africa@data$country_var=="Mozambique",]
+
+
+## Extracting data from rasters
+
+library(spatialEco)
+
+# Loading, projecting and aggregating raster files 
+lights <- raster("data/nightlights/F182010.v4/F182010.v4d_web.stable_lights.avg_vis.tif")
+lights_small <- aggregate(lights, 2)
+lights_small_projected <- projectRaster(lights_small, crs = newcrs, method = "bilinear")
+
+pop_density <- raster("data/population_density/gpw-v4-population-density-adjusted-to-2015-unwpp-country-totals-rev10_2015_2pt5_min_tif/gpw_v4_population_density_adjusted_to_2015_unwpp_country_totals_rev10_2015_2pt5_min.tif")
+pop_density <- aggregate(pop_density, 2)
+pop_density_projected <- projectRaster(pop_density, crs = newcrs, method = "bilinear")
+
+# Extracting the values
+lights_data <- c()
+density_data <- c()
+tri <- c()
+counter <- 0
+
+for (i in row.names(africa@data)){
+  cell <- africa[africa@data$ID==i,]
+  lights_data[i] <- mean(values(crop(lights_small_projected, 
+                                     cell)), na.rm=TRUE)
+  density_data[i] <- mean(values(crop(pop_density_projected, 
+                                     cell)), na.rm=TRUE)
+  ri <- tri(crop(elev, cell), exact = TRUE, s = 3)
+  tri[i] <- mean(values(ri),na.rm=TRUE)
+  
+  counter <- counter+1
+  print(counter/length(row.names(africa@data)))
+}
+
+# Joining and preparing datasets
+
+africa@data$lights_data <- log(lights_data+1)
+africa@data$density_data <- log(density_data+1)
+africa@data$tri <- tri
+
+africa@data$long <- coordinates(africa)[,1]
+africa@data$lat <- coordinates(africa)[,2]
+
+
+
+africa@data$coast <- ifelse(distance_coast<=100,1,0)
+
+
+
+
+
+kenya <- africa[africa@data$country_var=="Mozambique"|
+                africa@data$country_var=="Malawi"|
+                africa@data$country_var=="Zambia"|
+                africa@data$country_var=="Zimbabwe"|
+                africa@data$country_var=="South Africa"|
+                africa@data$country_var=="Swasiland"|
+                africa@data$country_var=="Tanzania",]
 
 p1 <- tm_shape(kenya) +  
-  tm_fill(col="distance_coast", palette=plasma(256),n=15) + 
+  tm_fill(col="coast", palette=plasma(256),n=15) + 
   tm_layout(frame=TRUE, legend.show=FALSE,bg.color="grey85") 
 
 p2 <- tm_shape(kenya) +  
@@ -549,10 +581,56 @@ p3 <- tm_shape(kenya) +
 
 print(tmap_arrange(p1,p2,p3))
 
-
 #save(africa,file="africa.Rda")
-
 summary(lm(data=africa, distances_actual~distances_predicted+factor(country_var)))
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Loading city level data
+countries10 <- ne_download(scale = 10, 
+                           type = 'countries', category = 'cultural')
+
+africa_ssa <- countries10[countries10@data$CONTINENT=="Africa",]
+coastline10 <- ne_download(scale = 50, 
+                           type = 'coastline', category = 'physical')
+buffer <- gBuffer(africa_ssa, width = 0.1)
+coastline_study_area <- gIntersection(buffer, coastline10) 
+
+not_ssa <- c("Egypt", "Libya", "Morocco", "Tunisia", 
+             "Algeria", "Western Sahara")
+africa_ssa <- africa_ssa[!(africa_ssa@data$ADMIN %in% not_ssa),]
+
+
+
+
+africa_polis <- readOGR("data/population_density/Africapolis_2015_shp/Africapolis.shp", "Africapolis")
+
+africa_polis@data$pop1960 <- as.numeric(africa_polis@data$pop1960)
+africa_polis@data$pop2000 <- as.numeric(africa_polis@data$pop2000)
+africa_polis_ssa <- africa_polis[africa_polis@data$ISO!="MAR",]
+
+tm_shape(africa_polis_ssa) +  
+  tm_bubbles(size="pop2000", scale=0.5,col="black", 
+             alpha=0.4, border.lwd = 0.1)+
+  tm_shape(coastline_study_area) +  
+  tm_lines(col = "grey", lwd=0.5) +
+  tm_shape(africa_ssa) +  
+  tm_borders(lwd=0.5) 
+
+library(maptools)
+
+checkPolygonsHoles(africa_polis_ssa)
+
 
 
 
