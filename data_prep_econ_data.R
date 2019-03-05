@@ -601,8 +601,14 @@ countries10 <- ne_download(scale = 10,
                            type = 'countries', category = 'cultural')
 
 africa_ssa <- countries10[countries10@data$CONTINENT=="Africa",]
+
+# Romove Marion island
+
+africa_ssa <- africa_ssa[area(africa_ssa)>10500897040,]
 coastline10 <- ne_download(scale = 50, 
                            type = 'coastline', category = 'physical')
+
+
 buffer <- gBuffer(africa_ssa, width = 0.1)
 coastline_study_area <- gIntersection(buffer, coastline10) 
 
@@ -610,26 +616,42 @@ not_ssa <- c("Egypt", "Libya", "Morocco", "Tunisia",
              "Algeria", "Western Sahara")
 africa_ssa <- africa_ssa[!(africa_ssa@data$ADMIN %in% not_ssa),]
 
-
-
-
 africa_polis <- readOGR("data/population_density/Africapolis_2015_shp/Africapolis.shp", "Africapolis")
 
-africa_polis@data$pop1960 <- as.numeric(africa_polis@data$pop1960)
-africa_polis@data$pop2000 <- as.numeric(africa_polis@data$pop2000)
-africa_polis_ssa <- africa_polis[africa_polis@data$ISO!="MAR",]
+africa_polis@data$pop1960 <- (as.numeric(africa_polis@data$pop1960))
+africa_polis@data$pop1960 <- ifelse(africa_polis@data$pop1960!=1,
+                                    africa_polis@data$pop1960, NA) 
+africa_polis@data$`Population 1960` <- africa_polis@data$pop1960
+africa_polis@data$pop2000 <- (as.numeric(africa_polis@data$pop2000))
+africa_polis@data$`Population 2000` <- africa_polis@data$pop2000
+africa_polis_ssa <- africa_polis[!(africa_polis@data$ISO %in% c("MAR", "EGY", "TUN", "LBY", "DZA")),]
 
-tm_shape(africa_polis_ssa) +  
-  tm_bubbles(size="pop2000", scale=0.5,col="black", 
-             alpha=0.4, border.lwd = 0.1)+
-  tm_shape(coastline_study_area) +  
-  tm_lines(col = "grey", lwd=0.5) +
-  tm_shape(africa_ssa) +  
-  tm_borders(lwd=0.5) 
 
-library(maptools)
+library(spatialEco)
+africa_polis_ssa_1 <- remove.holes(africa_polis_ssa)
+africa_polis_ssa_plot <- SpatialPolygonsDataFrame(africa_polis_ssa_1,
+                                                  africa_polis_ssa@data, match.ID = TRUE)
 
-checkPolygonsHoles(africa_polis_ssa)
+p1 <- tm_shape(coastline_study_area) +  
+      tm_lines(col = "grey", lwd=0.5) +
+      tm_shape(africa_ssa) +  
+      tm_borders(lwd=0.5) +
+      tm_shape(africa_polis_ssa_plot) +  
+      tm_bubbles(size="Population 1960", scale=0.6,col="grey", 
+             alpha=0.4, border.lwd = 0.1, style = "pretty")+
+      tm_layout(frame=FALSE,legend.title.size=0.9) 
+
+p2 <- tm_shape(coastline_study_area) +  
+      tm_lines(col = "grey", lwd=0.5) +
+      tm_shape(africa_ssa) +  
+      tm_borders(lwd=0.5) +
+      tm_shape(africa_polis_ssa_plot) +  
+      tm_bubbles(size="Population 2000", scale=0.6,col="grey", 
+               alpha=0.4, border.lwd = 0.1, style = "pretty")+
+      tm_layout(frame=FALSE,legend.title.size=0.9)
+
+tmap_arrange(p1,p2)
+
 
 
 
