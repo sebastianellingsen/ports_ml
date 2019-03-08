@@ -36,19 +36,24 @@ plot_country <- function(x){
   dataset_country_final <<- sps_df[row.names(sps_df) %in% sapply(dataset_country@polygons, function(x) x@ID), ]
 }
 
-plot_country("Denmark")
+plot_country("Kenya")
 
 # Defining variables
-dataset_country_final@data$pred <- ifelse(dataset_country_final@data$y_pred>=1.6, 1, 0)
+dataset_country_final@data$pred <- ifelse(dataset_country_final@data$y_pred>=1.65, 1, 0)
 dataset_country_final@data$false_p <- ifelse(as.numeric(dataset_country_final@data$y)-1<dataset_country_final@data$pred, 2, 0)
 dataset_country_final@data$false_n <- ifelse(as.numeric(dataset_country_final@data$y)-1>dataset_country_final@data$pred, 1, 0)
 dataset_country_final@data$errors <- dataset_country_final@data$false_p + dataset_country_final@data$false_n
 
 # Plotting the predicted ports
-p1 <- tm_shape(dataset_country_final) +  tm_fill(col="y_pred", palette=plasma(256)) + tm_layout(frame=TRUE, legend.show=FALSE,bg.color="grey85") 
-p2 <- tm_shape(dataset_country_final) +  tm_fill(col="errors", palette=plasma(256), title = "Figure 1a") + tm_layout(frame=TRUE, legend.show=FALSE,bg.color="grey85")
-tmap_arrange(p1,p2)
+p1 <- tm_shape(dataset_country_final) +  
+  tm_fill(col="y_pred", palette=plasma(256)) + 
+  tm_layout(frame=TRUE, legend.show=FALSE,bg.color="grey85") 
 
+p2 <- tm_shape(dataset_country_final) +  
+  tm_fill(col="pred", palette=plasma(256), title = "Figure 1a") + 
+  tm_layout(frame=TRUE, legend.show=FALSE,bg.color="grey85")
+  
+tmap_arrange(p1,p2)
 
 
 
@@ -61,7 +66,7 @@ tmap_arrange(p1,p2)
 
 elev_tmp <- raster("/Users/sebastianellingsen/Dropbox/ports_ml/ETOPO1_Ice_g_geotiff.tif") 
 countries10_tmp <- ne_download(scale = 10, type = 'countries', category = 'cultural')
-spain <- countries10_tmp[countries10$ADMIN=="Sweden",]
+spain <- countries10_tmp[countries10$ADMIN=="Mozambique",]
 
 # Projecting the shapefile
 crs(elev_tmp) <- crs(countries10_tmp)
@@ -102,8 +107,6 @@ tm_shape(sps_df_tmp) +
 
 
 
-
-
 #######################################
 ## Plotting elevation and bathymetry ##
 #######################################
@@ -111,8 +114,7 @@ tm_shape(sps_df_tmp) +
 
 elev_tmp <- raster("/Users/sebastianellingsen/Dropbox/ports_ml/ETOPO1_Ice_g_geotiff.tif") 
 countries10_tmp <- ne_download(scale = 10, type = 'countries', category = 'cultural')
-spain <- countries10_tmp[countries10$ADMIN=="China",]
-
+spain <- countries10_tmp[countries10$ADMIN=="Madagascar",]
 # Projecting the shapefile
 crs(elev_tmp) <- crs(countries10_tmp)
 
@@ -151,7 +153,7 @@ tm_shape(sps_df_tmp) +
 
 # Aggregating over the hexagons
 tm_shape(elev_cropped) +
-  tm_raster(midpoint = NA, palette=plasma(3), style="kmeans") + 
+  tm_raster(midpoint = NA, palette=plasma(100), style="kmeans") + 
   tm_shape(spain) + tm_borders(col="white", lwd=0.7)+
   tm_layout(legend.show=FALSE, frame=TRUE)
   #tm_shape(hexagons_tmp)+tm_borders(col="white", lwd=0.3)
@@ -308,8 +310,6 @@ tm_shape(elev_cropped) +
 
 
 
-
-
 lights <- raster("data/nightlights/F182010.v4/F182010.v4d_web.stable_lights.avg_vis.tif")
 lights_small <- aggregate(lights, 4)
 
@@ -379,12 +379,6 @@ ggplot(grid_cell, aes(x = y_pred, y = y)) +
   geom_point(alpha = .1)+stat_smooth(method = "lm", col = "black", se=TRUE)
 
 
-
-
-
-
-
-
 elev_projected <- raster("ETOPO1_Ice_g_geotiff.tif")
 elev_projected <- elev
 
@@ -435,7 +429,6 @@ sps_df_coastal$lights_data_sd_above <-lights_data_sd_above
 sps_df_coastal$tri <-tri
 #sps_df_coastal$y_pred <-sps_df_coastal$y_pred-1
 
-
 lights_reg_data <-  sps_df_coastal@data
 
 lights_reg_data_1 <- lights_reg_data %>% 
@@ -459,4 +452,134 @@ ggarrange(p1,p2,p3,ncol=3)
 
 
 
+
+## Plotting the distance to the coastline
+mozambique <- countries10[countries10@data$ADMIN=="Mozambique",]
+
+hexagons_tmp <- gIntersection(africa, mozambique, byid = TRUE)
+
+# The raster can be simplified to speed up the calculations
+row.names(hexagons_tmp) <- gsub(" 122", "", 
+                                sapply(hexagons_tmp@polygons, function(x) x@ID))
+
+kenya_intersected <- kenya[kenya@data$ID %in% row.names(hexagons_tmp),]
+kenya_intersected <- kenya_intersected@data
+hexagons_tmp <- SpatialPolygonsDataFrame(hexagons_tmp,
+                                         kenya_intersected, match.ID = TRUE)
+
+
+hexagons_tmp_coast <- hexagons_tmp[hexagons_tmp@data$distance_coast<10,]
+
+p1 <- tm_shape(hexagons_tmp) +  
+  tm_fill(col="distance_coast", palette=plasma(256),n=40) + 
+  tm_layout(frame=TRUE, legend.show=FALSE,bg.color="white", 
+            main.title="Min. distance to coast", main.title.size=0.7) 
+
+p2 <- tm_shape(hexagons_tmp) +  
+  tm_fill(col="distances_actual", palette=plasma(256),n=40) + 
+  tm_layout(frame=TRUE, legend.show=FALSE,bg.color="white", 
+            main.title="Min. distance to port", main.title.size=0.7) 
+
+p3 <- tm_shape(hexagons_tmp) +  
+  tm_fill(col="distances_predicted", palette=plasma(256),n=40) + 
+  tm_layout(frame=TRUE, legend.show=FALSE,bg.color="white", 
+            main.title="Min. distance to predicted port", main.title.size=0.7) 
+
+print(tmap_arrange(p1,p2,p3))
+
+
+## Main results
+africa@data$coast <- ifelse(africa@data$y_pred>=1.65, 1, 0)
+
+
+africa_coast <- africa@data %>%  filter(exp(distance_coast)<50)
+
+africa_coast <- africa[exp(africa@data$distance_coast)<50,]
+
+m1 <- lm(data=africa_coast, distances_actual ~ distances_predicted + 
+           factor(country_var))
+
+m2 <- lm(data=africa_coast, distances_actual ~ distances_predicted+
+           factor(country_var) +distance_coast + long + lat )
+
+m3 <- lm(data=africa_coast, lights_data ~ distances_predicted+
+           factor(country_var) +distance_coast + long + lat )
+
+m4 <- lm(data=africa_coast, lights_data ~ distances_actual+
+           factor(country_var)  +distance_coast + long + lat)
+
+iv1 <- ivreg(lights_data ~ distances_actual  +
+                   factor(country_var) | distances_predicted + 
+                   factor(country_var)  , data=africa_coast)
+
+iv2 <- ivreg(lights_data ~ distances_actual  +
+               factor(country_var) +distance_coast + long + lat + tri+distance_coast2+distance_coast3| distances_predicted + 
+               factor(country_var)  +distance_coast +distance_coast2+distance_coast3 + long + lat + tri, data=africa_coast)
+
+star <- stargazer(m1, m2, m3, m4, iv2, type="text", 
+                  title ="Distance to ports, 
+                          population density, and nightlight intensity ",
+                  star.char = c(""), 
+                  dep.var.caption = "",
+                  style = "io",
+                  dep.var.labels.include = FALSE, 
+                  header = FALSE,
+                  notes.append = TRUE,
+                  #omit.table.layout = "n",
+                  model.names = FALSE, 
+                  omit=c("country_var", "long", "lat", 
+                         "Constant", "distance_coast"),
+                  font.size ="small", 
+                  omit.stat = c("rsq", "f", "ser"),
+                  add.lines = list(c("Soc. + dem. controls","",
+                  "$\\checkmark$", "$\\checkmark$",
+                  "$\\checkmark$","$\\checkmark$",
+                  "$\\checkmark$", "$\\checkmark$")))
+
+
+ggplot(data=africa@data, aes(x=exp(distance_coast), y=density_data))+ 
+   xlab("") + ylab("")+ ggtitle("")+
+   stat_summary_bin(fun.y='mean', bins=200,color='black',alpha=0.3, size=2, geom='point')
+
+
+## City level analysis
+m1 <- lm(log(distance_actual+1) ~ log(distance_predicted+1)+factor(ISO), 
+         data=africa_cities)
+
+m2 <- lm(log(distance_actual+1) ~ log(distance_predicted+1)+factor(ISO) + log(1+distance_coast)+ d2 + d3, 
+         data=africa_cities)
+
+m3 <- lm(g ~ log(distance_predicted+1)+factor(ISO), 
+           data=africa_cities)
+
+m4 <- lm(g ~ log(distance_predicted+1)+factor(ISO) +log(1+distance_coast)+ d2 + d3, 
+         data=africa_cities)
+
+m5 <- lm(g ~ log(distance_actual+1)+factor(ISO) +log(1+distance_coast)+ d2 + d3, 
+         data=africa_cities)
+
+iv1 <- ivreg(g~factor(ISO) + log(distance_actual+1)|
+               factor(ISO) + log(distance_predicted+1), data=africa_cities)
+
+iv2 <- ivreg(g~factor(ISO) + log(distance_actual+1)+log(1+distance_coast)+ d2 + d3|
+                factor(ISO) + log(distance_predicted+1)+log(1+distance_coast)+ d2 + d3, data=africa_cities)
+
+star <- stargazer(m1, m2,m3,m4,m5,iv1, iv2, type="text", 
+                  title ="Distance to ports, 
+                  population density, and nightlight intensity ",
+                  star.char = c(" "), 
+                  dep.var.caption = "",
+                  style = "io",
+                  dep.var.labels.include = FALSE, 
+                  header = FALSE,
+                  notes.append = TRUE,
+                  #omit.table.layout = "n",
+                  model.names = FALSE, 
+                  omit=c("country_var", "ISO", "Constant"),
+                  font.size ="small", 
+                  omit.stat = c("rsq", "f", "ser"),
+                  add.lines = list(c("Soc. + dem. controls","",
+                                     "$\\checkmark$", "$\\checkmark$",
+                                     "$\\checkmark$","$\\checkmark$",
+                                     "$\\checkmark$", "$\\checkmark$")))
 
