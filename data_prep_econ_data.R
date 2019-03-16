@@ -164,24 +164,20 @@ ports_africa_cn <- ports_africa@data %>%
 
 
 
-
-
-
-
 #######################################
 ## Generating the country level data ##
 #######################################
 
 ssa <- c("Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cameroon",
-         "Cape Verde", "Central African Republic", "Chad", "Congo (Brazzaville)", 
-         "Congo (Democratic Republic)", "Cote div",
+         "Cape Verde", "Central African Republic", "Chad", "Congo, Democratic Republic of", 
+         "Congo, Republic of", "Cote div", "Côte d'Ivoire", "Gambia, The",
          "Djibouti", "Equatorial Guinea", "Eritrea", "Ethiopia", "Gabon",
          "The Gambia", "Ghana", "Guinea", "Guinea-Bissau", "Kenya", "Lesotho",
          "Liberia", "Madagascar", "Malawi", "Mali", "Mauritania", "Mauritius",
          "Mozambique", "Namibia", "Niger", "Nigeria", "Rwanda",
          "Senegal", "Sierra Leone", "Uganda", "Western Sahara", "Zambia", 
          "Somalia", "South Africa", "Sudan", "Swaziland", "Tanzania", "Togo",
-         "Zimbabwe")
+         "Zimbabwe", "Eswatini, Kingdom of")
 
 countries_list <- countries10[countries10$TYPE=="Sovereign country"|countries10$TYPE=="Country",]
 
@@ -230,7 +226,7 @@ trade_data <- read_excel("data/Trade_of_Goods.xlsx", skip=5) %>%
   replace_with_na_all(condition=~.x=="...") %>% 
   slice(1:185) %>% 
   gather("year", "trade",2:167) %>% 
-  filter(year >=1950 & year<=1965,
+  filter(year<1970,
          !is.na(trade), Country %in% ssa) %>% 
   mutate(trade=as.numeric(trade), year=as.numeric(year)) %>% 
   group_by(Country) %>% 
@@ -286,149 +282,9 @@ combined <- inner_join(econ_data, harbor_data, by = "country_code") %>%
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## Preliminary analysis
-library(plm)
-library(stargazer)
-library(sandwich)
-library(lmtest) 
-library(AER)
-
-## Clustering standard errors
-robust_std <- function(group, model){
-  G <- length(unique(group))
-  N <- length(group)
-  dfa <- (G/(G - 1)) * (N - 1)/model$df.residual
-  coeftest(model, 
-           vcov=function(x) dfa*vcovHC(x, cluster="group", 
-                                       type="HC0"))[, "Std. Error"]
-}
-
-# Models: Population density
-fs1 <- lm(data=coastal_data_fe, formula = as.numeric(y) ~ y_p)
-se_fs1 <- robust_std(coastal_data_fe$country_var, fs1)
-
-fs2 <- lm(data=coastal_data_fe, formula = as.numeric(y) ~ y_p +factor(country_var))
-se_fs2 <- robust_std(coastal_data_fe$country_var, fs2)
-
-m1 <- lm(data=coastal_data_fe, formula = log(1+lights_data) ~ y +factor(country_var))
-se_m1 <- robust_std(coastal_data_fe$country_var, m1)
-
-m2 <- lm(data=coastal_data_fe, formula = log(1+lights_data) ~ y_p+factor(country_var))
-se_m2 <- robust_std(coastal_data_fe$country_var, m2)
-
-iv1 <- ivreg(log(1+lights_data)~ y +factor(country_var) | y_p  +
-                   factor(country_var), data=coastal_data_fe)
-se_iv1 <- robust_std(coastal_data_fe$country_var, iv1)
-
-
-# Adjust F statistic 
-#wald_results <- waldtest(output, vcov = cov1)
-star <- stargazer(fs1,fs2, m2, m1,iv1, type = "text",
-          se        = list(se_fs1, se_fs2,se_m2, se_m1, se_iv1),
-          omit.stat = c("rsq", "f", "ser"),
-          header = FALSE,
-          column.labels   = c("OLS", "IV"),
-          column.separate = c(4, 1),
-          dep.var.labels.include = TRUE,
-          model.names = FALSE,
-          star.char = c(""), 
-          dep.var.labels=c("Ports","Pop. density"),
-          style="io",
-          font.size="small",
-          digits = 2,
-          covariate.labels = c("$\\widehat{Ports}$", "Ports"),
-          omit=c("country_var","year","Constant"))
-          
-
-note.latex <- "\\multicolumn{6}{c} {\\parbox[c]{11cm}{\\textit{Notes:} Logistic regression. Dependent variable: an indicator varible ... AND Some very long Logistic regression. Dependent variable: an indicator varible ... AND Some very long Logistic regression. Dependent variable: an indicator varible ... AND Some very long Logistic regression. Dependent variable: an indicator varible ... AND Some very long and interesting comment.}} \\\\"
-star[grepl("Note",star)] <- note.latex
-cat (star, sep = "\n")
-
-          
-# Models: Night lights
-fs1 <- lm(data=coastal_data_fe, formula = as.numeric(y) ~ y_p)
-se_fs1 <- robust_std(coastal_data_fe$country_var, fs1)
-
-fs2 <- lm(data=coastal_data_fe, formula = as.numeric(y) ~ y_p +factor(country_var))
-se_fs2 <- robust_std(coastal_data_fe$country_var, fs2)
-
-m1 <- lm(data=coastal_data_fe, formula = lights_data ~ y +factor(country_var))
-se_m1 <- robust_std(coastal_data_fe$country_var, m1)
-
-m2 <- lm(data=coastal_data_fe, formula = lights_data ~ y_p+factor(country_var))
-se_m2 <- robust_std(coastal_data_fe$country_var, m2)
-
-iv1 <- ivreg(lights_data~ y +factor(country_var) | y_p  +
-               factor(country_var), data=coastal_data_fe)
-se_iv1 <- robust_std(coastal_data_fe$country_var, iv1)
-
-
-# Adjust F statistic 
-#wald_results <- waldtest(output, vcov = cov1)
-star <- stargazer(fs1,fs2,m2, m1,iv1, type = "text",
-                  se        = list(se_fs1, se_fs2,se_m2, se_m1, se_iv1),
-                  omit.stat = c("rsq", "f", "ser"),
-                  header = FALSE,
-                  column.labels   = c("OLS", "IV"),
-                  column.separate = c(4, 1),
-                  dep.var.labels.include = TRUE,
-                  model.names = FALSE,
-                  star.char = c(""), 
-                  dep.var.labels=c("Ports","Night lights"),
-                  style="io",
-                  font.size="small",
-                  digits = 2,
-                  covariate.labels = c("$\\widehat{Ports}$", "Ports"),
-                  omit=c("country_var","year","Constant"))
-
-
-note.latex <- "\\multicolumn{6}{c} {\\parbox[c]{11cm}{\\textit{Notes:} Logistic regression. Dependent variable: an indicator varible ... AND Some very long Logistic regression. Dependent variable: an indicator varible ... AND Some very long Logistic regression. Dependent variable: an indicator varible ... AND Some very long Logistic regression. Dependent variable: an indicator varible ... AND Some very long and interesting comment.}} \\\\"
-star[grepl("Note",star)] <- note.latex
-cat (star, sep = "\n")
-
-
-
-summary(plm(density_data~as.factor(y),index = c("country_var"), model = "within",  
-            data = coastal_data_fe1))
-iv_gdp3 <- ivreg(density_data~ y +factor(country_var) | y_pred  +factor(country_var), data=coastal_data_fe1)
-summary(iv_gdp3)
-
-summary(lm(as.numeric(y) ~ pred, data = coastal_data_fe1))
-
-
-rse1 <- sqrt(diag(vcovHC(iv_gdp3, type = "HC1")))[2]
-
-m1 <- lm(formula = y ~factor(country_var), data = coastal_data_fe1)
-m2 <- lm(formula = y_pred ~  factor(country_var), data = coastal_data_fe1)
-
-coastal_data_fe1$fvalues <- as.numeric(coastal_data_fe1$y)-predict(m1,coastal_data_fe1)
-coastal_data_fe1$fvalues_pred <- coastal_data_fe1$y_pred-predict(m2,coastal_data_fe1)
-
-ggplot(data=coastal_data_fe1, aes(x=(fvalues_pred), y=( fvalues)))+ 
-  geom_rug(alpha = 0.01) + xlab("") + ylab("")+ggtitle("Nightlights and port suitability")+
-  geom_smooth()+
-
-  stat_summary_bin(fun.y='mean', bins=500,color='blue',alpha=0.5, size=2, geom='point')
-    
-  
-
-
-## This section adds fixed effects to the full sample
+##########################################
+## Generating the grid cell level data ###
+##########################################
 
 # defining the sample
 countries_list1 <- countries_list[countries_list@data$CONTINENT=="Africa",]
@@ -654,10 +510,11 @@ africa_cities <- africa_polis@data %>%
 
 # Joining africa cities with trade data
 africa_cities_trade <- africa_cities %>% rename(country_code=ISO) %>% 
-  full_join(trade_data, by="country_code")
+  full_join(trade_data, by="country_code") %>% 
+  filter(!is.na(Name)) %>% 
+  mutate(distance_coast2 = distance_coast^2)
 
 # Joining africa cities with democracy data
-
 africa_cities_polity <- africa_cities %>% rename(country_code=ISO) %>% 
   full_join(polity_data, by="country_code") %>% 
   filter(!is.na(polity2), !is.na(distance_actual))
