@@ -5,7 +5,7 @@
 
 if (!require(pacman)) install.packages("pacman")
 p_load(tidyverse, sf, raster, tmap, sp, rgdal, rgeos, viridis, 
-       ranger, tmaptools, readxl, naniar)
+       ranger, tmaptools, readxl, naniar, countrycode)
 
 #hexagons_full <- gIntersection(hexagons, study_area, byid = TRUE)
 
@@ -213,8 +213,6 @@ countries_list@data$long <- long
 countries_list@data$lat <- lat
 
 ## Adding controls
-if (!require(pacman)) install.packages("pacman")
-p_load(readxl, naniar, countrycode)
 
 # Loading data 
 excel_sheets("data/mpd2018.xlsx")
@@ -259,7 +257,10 @@ harbor_data[which(harbor_data$country=="France"),5] <- "FRA"
 
 # Polity iv 
 polity_data <- read_excel("data/p4v2017.xls") %>% 
-  dplyr::select(scode, country, year, polity2, democ) %>% filter(year==1960) 
+  dplyr::select(scode, country, year, polity2, democ) %>% 
+  filter(year>=1960 & year<=1970) %>% 
+  group_by(country) %>% 
+  summarise(polity=mean(polity2))
 polity_data$country_code <- sapply(polity_data$country, 
                                    function(x) countrycode(x, 'country.name', 'iso3c'))
 
@@ -499,8 +500,16 @@ africa_cities <- africa_polis@data %>%
          pop1980=(as.numeric(as.character(pop1980))),
          Dens2015=(as.numeric(as.character(Dens2015))),
          pop1990=(as.numeric(as.character(pop1990))),
-         pop1960=as.numeric(as.character(pop1960))) %>% 
-  mutate(g=(log(pop2010-pop1960)),
+         pop1960=as.numeric(as.character(pop1960)))
+
+%>% 
+
+    mutate(g=log(pop2010-pop1960),
+         g1970=log(pop1970-pop1960),
+         g1980=log(pop1980-pop1970),
+         g1990=log(pop1990-pop1980),
+         g2000=log(pop2000-pop1990),
+         g2010=log(pop2010-pop2000),
          d2=log(1+distance_coast)^2,
          d3=log(1+distance_coast)^3) %>% 
   filter(is.finite(g)) 
@@ -517,7 +526,7 @@ africa_cities_trade <- africa_cities %>% rename(country_code=ISO) %>%
 # Joining africa cities with democracy data
 africa_cities_polity <- africa_cities %>% rename(country_code=ISO) %>% 
   full_join(polity_data, by="country_code") %>% 
-  filter(!is.na(polity2), !is.na(distance_actual))
+  filter(!is.na(polity), !is.na(distance_actual))
 
 
 
