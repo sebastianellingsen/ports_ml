@@ -566,9 +566,28 @@ water_areas <- land_cover[land_cover==210]
 
 
 
+## Zambia
+zambia <- africa_polis[africa_polis@data$ISO=="ZMB",]
+zambia@data$pop2010 <- as.numeric(zambia@data$pop2010)
+zambia_shape <- countries10[countries10@data$ADMIN=="Zambia",]
 
 
+tm_shape(zambia) +
+  tm_bubbles(size="pop2010",scale=1,border.lwd = 0.01,
+             style = "pretty", alpha=0.65)+
+  tm_shape(zambia_shape) +
+  tm_borders(lwd=0.5) 
+  
 
+
+(tm_shape(coastline_study_area) +
+    tm_lines(col = "grey", lwd=0.2) +
+    tm_shape(africa_ssa) +
+    tm_borders(lwd=0.5) +
+    tm_shape(africa_polis_ssa_plot) +
+    tm_bubbles(size="g",scale=1.6,border.lwd = 0.01,
+               style = "pretty", alpha=0.65)+
+    tm_layout(frame=FALSE,legend.title.size=0.95))
 
 
 
