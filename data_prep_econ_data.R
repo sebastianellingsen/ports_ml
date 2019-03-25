@@ -500,10 +500,7 @@ africa_cities <- africa_polis@data %>%
          pop1980=(as.numeric(as.character(pop1980))),
          Dens2015=(as.numeric(as.character(Dens2015))),
          pop1990=(as.numeric(as.character(pop1990))),
-         pop1960=as.numeric(as.character(pop1960)))
-
-%>% 
-
+         pop1960=as.numeric(as.character(pop1960)))%>% 
     mutate(g=log(pop2010-pop1960),
          g1970=log(pop1970-pop1960),
          g1980=log(pop1980-pop1970),
@@ -513,7 +510,6 @@ africa_cities <- africa_polis@data %>%
          d2=log(1+distance_coast)^2,
          d3=log(1+distance_coast)^3) %>% 
   filter(is.finite(g)) 
-
 
 #save(africa,file="africa_roads.Rda")
 
