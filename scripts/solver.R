@@ -57,7 +57,7 @@ eq <- function(L) {
 
 init <- rep(1/regions, regions)
 nleqslv(init, eq)
- 
+
 
 
 
