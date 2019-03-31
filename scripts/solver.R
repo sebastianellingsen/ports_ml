@@ -110,11 +110,14 @@ w <-  (1/((A^(sigma-1) *
          L^((sigma-1)*(1-alpha)/alpha) *
          H^(-(sigma-1)*(1-alpha)/alpha))))^(1/(1-2*sigma))
 
+## Solve for prices
 L_adj <- dist_matrix%*%L
 P <- (1/(sigma*Fc))  *  
      (sigma/(sigma-1))  * 
      ((L_adj*w/A)^(1-sigma))^(1/(1-sigma))
-      
+
+
+## Put solutions in matrix form
 P_solution <- matrix(P, 
                      nrow = sqrt(regions),
                      ncol = sqrt(regions), 
@@ -135,6 +138,7 @@ w_solution <- matrix(w,
                      ncol = sqrt(regions),
                      byrow=TRUE)
 
+## Plotting the solutions
 library(raster)
 library(tmap)
 library(viridis)
@@ -174,9 +178,7 @@ tmap_arrange(p1,p2,p3,p4)
 
 
 
-
-
-
+## Solutions for the closed economy
 P_solution_closed <- matrix(P, 
                      nrow = sqrt(regions),
                      ncol = sqrt(regions), 
@@ -197,7 +199,6 @@ w_solution_closed <- matrix(w,
                      ncol = sqrt(regions),
                      byrow=TRUE)
 
-
 P_solution_d <- P_solution/P_solution_closed
 L_solution_d <- L_solution/L_solution_closed
 w_solution_d <- w_solution/w_solution_closed
@@ -206,8 +207,6 @@ L_dist <- raster((L_solution_d))
 A_dist <- raster((A_solution))
 P_dist <- raster((P_solution_d))
 w_dist <- raster((w_solution_d))
-
-
 
 
 
