@@ -18,7 +18,9 @@ countries10 <- ne_download(scale = 10,
 africa <- countries10[countries10@data$CONTINENT=="Africa",]
 africa <- spTransform(africa, newcrs)
 
-tan_zam=africa[africa@data$SOVEREIGNT=="Malawi"|africa@data$SOVEREIGNT=="Zambia"|africa@data$SOVEREIGNT=="United Republic of Tanzania",]
+tan_zam=africa[africa@data$SOVEREIGNT=="Malawi"|
+                 africa@data$SOVEREIGNT=="Zambia"|
+                 africa@data$SOVEREIGNT=="United Republic of Tanzania",]
 zambia=africa[africa@data$SOVEREIGNT=="Zambia",]
 
 
@@ -29,8 +31,10 @@ railway_zam <- spTransform(railway_zam, newcrs)
 railway_tan <- readOGR("data/TZA_rrd/TZA_rails.shp", "TZA_rails")
 railway_tan <- spTransform(railway_tan, newcrs)
 
-tanzam_tan <- railway_tan[railway_tan@data$FID_rail_d==174706|railway_tan@data$FID_rail_d==174597,]
-tanzam_zam <- railway_zam[railway_zam@data$FID_rail_d==174985|railway_zam@data$FID_rail_d==175916,]
+tanzam_tan <- railway_tan[railway_tan@data$FID_rail_d==174706|
+                            railway_tan@data$FID_rail_d==174597,]
+tanzam_zam <- railway_zam[railway_zam@data$FID_rail_d==174985|
+                            railway_zam@data$FID_rail_d==175916,]
 
 # Tanzam railway
 rail <- c(175790, 175899, 175917, 175925, 176219, 176780, 175900, 175909, 
@@ -42,11 +46,9 @@ railway_zam_pre <- railway_zam[railway_zam@data$FID_rail_d %in% rail,]
 ## City data ##
 africa_polis <- readOGR("/Users/sebastianellingsen/Dropbox/ports_ml/data/population_density/Africapolis_2015_shp/Africapolis.shp", "Africapolis")
 
-africa_polis@data$pop1960 <- (as.numeric(as.character(africa_polis@data$pop1960)))
-africa_polis@data$pop1970 <- (as.numeric(as.character(africa_polis@data$pop1970)))
-africa_polis@data$pop2000 <- (as.numeric(as.character(africa_polis@data$pop2000)))
-#africa_polis@data$`Population 2000` <- africa_polis@data$pop2000
-#africa_polis@data$`Population 1960` <- africa_polis@data$pop1960
+africa_polis@data$pop1960<-(as.numeric(as.character(africa_polis@data$pop1960)))
+africa_polis@data$pop1970<-(as.numeric(as.character(africa_polis@data$pop1970)))
+africa_polis@data$pop2000<-(as.numeric(as.character(africa_polis@data$pop2000)))
 africa_polis_ssa <- africa_polis[!(africa_polis@data$ISO %in% c("MAR", "EGY",
                                                                 "TUN", "LBY",
                                                                 "DZA")),]
@@ -55,7 +57,6 @@ africa_polis_ssa_1 <- remove.holes(africa_polis_ssa)
 africa_polis_ssa_plot <- SpatialPolygonsDataFrame(africa_polis_ssa_1,
                                                   africa_polis_ssa@data, 
                                                   match.ID = TRUE)
-
 
 
 
@@ -80,7 +81,8 @@ for (i in 1:nrow(africa_polis@data)){
 }
 
 africa_polis@data$distance_rail <- distance_rail
-rail_cities <- africa_polis[africa_polis@data$ISO=="ZMB"|africa_polis@data$ISO=="TZA",]
+rail_cities <- africa_polis[africa_polis@data$ISO=="ZMB"|
+                              africa_polis@data$ISO=="TZA",]
 
 rail_cities@data$pop2010 <- as.numeric(as.character(rail_cities@data$pop2010))
 rail_cities@data$pop1950 <- as.numeric(as.character(rail_cities@data$pop1950))
@@ -133,7 +135,6 @@ rail_cities_data <- rail_cities@data %>%
 #ggplot(data=rail_cities_data, aes(x=as.numeric(year),y=city))+
 #  geom_line()
 
-
 m1 <- lm(lpop~log(distance_start+1)*rail*factor(year), 
          data=rail_cities_data)
 summary(m1)
@@ -156,129 +157,58 @@ ggplot(data=m_terms, mapping=aes(x=year, y=estimate, group=1)) +
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-tm_shape(tan_zam) +
-  tm_borders(col = "grey", lwd=0.5) +
-  tm_shape(tanzam_zam)+tm_lines()+
-  tm_shape(tanzam_tan)+tm_lines()+
-  
-  #tm_shape(africa_polis_ssa_plot) + tm_dots(size=0.2)+
-  tm_layout(frame=FALSE,legend.title.size=0.95)+
-  tm_shape(africa_polis_ssa_plot)+
-  tm_bubbles(size="pop1960",scale=4,border.lwd = 0.01,
-             style = "pretty", alpha=0.65)
-
-
-
-
-railway_zam_1 <- railway_zam[railway_zam@data$FID_rail_d==176803,]
-
-## make a loop to find the right track 
-plot(zambia)
-plot(tanzam_zam,add=TRUE)
-for (i in 1:nrow(tanzam_zam@data)){
-  rail_nr <- tanzam_zam@data[i,]$FID_rail_d
-  railway_zam_1 <- railway_zam[railway_zam@data$FID_rail_d==rail_nr,]
-  plot(railway_zam_1,add=TRUE)
-  print(rail_nr)
-  print(i)
-  Sys.sleep(1)
-}
-
-
-
-plot(zambia)
-plot(railway_zam_pre,add=TRUE)
-
-tm_shape(zambia) +
-  tm_borders(col = "grey", lwd=0.5) +
-  tm_shape(railway_zam_pre)+tm_lines("red") +
-  tm_shape(tanzam_zam)+tm_lines("blue") +
-  #tm_shape(africa_polis_ssa_plot) + tm_dots(size=0.2)+
-  tm_layout(frame=FALSE,legend.title.size=0.95) +
-  tm_shape(africa_polis_ssa_plot) +
-  tm_bubbles(size="pop2000",scale=4,border.lwd = 0.01,
-             style = "pretty", alpha=0.65) +
-  tm_shape(rail_start)+
-  tm_dots()+
-  tm_layout(frame=FALSE,legend.title.size=0.95)
-
-
-
-africa_polis_ssa_plot_1 <- spTransform(africa_polis_ssa_plot, newcrs)
-
-
-# Calculate the distance from each city to the rail
-rail_distance <- gDistance(africa_polis_ssa_plot_1, railway_zam_pre)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# joining two lines 
-mydata <- rbind(spatiallines1, spatiallines2)
-
-tanzam_tan 
-tanzam_zam
-
-rail_cities_east <- rail_cities[rail_cities@data$distance_tanzania<=600,]
-
-
-
-rail_cities_1 <- rail_cities[rail_cities@data$distance_tanzania>450,]
-rail_cities_1 <- rail_cities_1[!(rail_cities_1@data$Name %in% c("Serenje", "Mkushi", "Chembe", "Petauke", "Nyimba")),]
-
-
-tm_shape(zambia) +
-  tm_borders(col = "grey", lwd=0.5) +
-  tm_shape(railway_zam_pre)+tm_lines("red") +
-  tm_shape(tanzam_zam)+tm_lines("blue") +
-  #tm_shape(africa_polis_ssa_plot) + tm_dots(size=0.2)+
-  tm_layout(frame=FALSE,legend.title.size=0.95) +
-  tm_shape(rail_cities_1) +
-  tm_dots(size=0.1, shape=1) +
-  tm_shape(rail_start)+
-  tm_dots()+
-  tm_layout(frame=FALSE,legend.title.size=0.95)
-
-
-
-
-
-
-
-
-
-
-
+## This loop can be used to find the correct section of the shapefile 
+# plot(zambia)
+# plot(tanzam_zam,add=TRUE)
+# for (i in 1:nrow(tanzam_zam@data)){
+#   rail_nr <- tanzam_zam@data[i,]$FID_rail_d
+#   railway_zam_1 <- railway_zam[railway_zam@data$FID_rail_d==rail_nr,]
+#   plot(railway_zam_1,add=TRUE)
+#   print(rail_nr)
+#   print(i)
+#   Sys.sleep(1)
+# }
+
+## This section plots the data in the analysis
+# rail_cities_1 <- rail_cities[rail_cities@data$distance_tanzania>450,]
+# rail_cities_1 <- rail_cities_1[!(rail_cities_1@data$Name %in% c("Serenje", "Mkushi", "Chembe", "Petauke", "Nyimba")),]
+# 
+# tm_shape(zambia) +
+#   tm_borders(col = "grey", lwd=0.5) +
+#   tm_shape(railway_zam_pre)+tm_lines("red") +
+#   tm_shape(tanzam_zam)+tm_lines("blue") +
+#   #tm_shape(africa_polis_ssa_plot) + tm_dots(size=0.2)+
+#   tm_layout(frame=FALSE,legend.title.size=0.95) +
+#   tm_shape(rail_cities_1) +
+#   tm_dots(size=0.1, shape=1) +
+#   tm_shape(rail_start)+
+#   tm_dots()+
+#   tm_layout(frame=FALSE,legend.title.size=0.95)
+
+# tm_shape(tan_zam) +
+#   tm_borders(col = "grey", lwd=0.5) +
+#   tm_shape(tanzam_zam)+tm_lines()+
+#   tm_shape(tanzam_tan)+tm_lines()+
+#   tm_layout(frame=FALSE,legend.title.size=0.95)+
+#   tm_shape(africa_polis_ssa_plot)+
+#   tm_bubbles(size="pop1960",scale=4,border.lwd = 0.01,
+#              style = "pretty", alpha=0.65)
+
+# plot(zambia)
+# plot(railway_zam_pre,add=TRUE)
+# 
+# tm_shape(zambia) +
+#   tm_borders(col = "grey", lwd=0.5) +
+#   tm_shape(railway_zam_pre)+tm_lines("red") +
+#   tm_shape(tanzam_zam)+tm_lines("blue") +
+#   #tm_shape(africa_polis_ssa_plot) + tm_dots(size=0.2)+
+#   tm_layout(frame=FALSE,legend.title.size=0.95) +
+#   tm_shape(africa_polis_ssa_plot) +
+#   tm_bubbles(size="pop2000",scale=4,border.lwd = 0.01,
+#              style = "pretty", alpha=0.65) +
+#   tm_shape(rail_start)+
+#   tm_dots()+
+#   tm_layout(frame=FALSE,legend.title.size=0.95)
 
 
 
