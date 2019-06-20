@@ -1,6 +1,5 @@
 ## This file prepares data for predicting using measures of the terrain directly
 
-
 ################################################################################
 ######################### Preparing data #######################################
 ################################################################################
@@ -51,7 +50,7 @@ elev_below <- raster("elev_below.grd")
 tri        <- raster("tri.grd")
 tri_below  <- raster("tri_below.grd")
 
-slope <- terrain(elev_below, 
+slope <- terrain(elev, 
                  opt='slope', 
                  unit='radians', 
                  neighbors=8)
@@ -94,107 +93,109 @@ a <- gBuffer(ports, width = bwidth, byid=TRUE)
 # Elevation in buffer
 b <- raster::extract(elev, a)
 tri_port <- raster::extract(elev, a)
+slope_port  <- raster::extract(slope, a)
 
 # Min. elevation
-min_elev_port <- sapply(1:length(b), 
+min_elev <- sapply(1:length(b), 
                         function(x) min(b[[x]],
                                         na.rm = TRUE))
 
-# Max elevation
-max_elev_port <- sapply(1:length(b), 
+# Max. elevation
+max_elev <- sapply(1:length(b), 
                         function(x) max(b[[x]],
                                         na.rm = TRUE))
 
 # Mean election
-mean_elev_port <- sapply(1:length(b), 
+mean_elev <- sapply(1:length(b), 
                            function(x) mean(b[[x]],
                                             na.rm = TRUE))
 
 # Mean terrain ruggedness
-mean_tri_port <- sapply(1:length(tri_port), 
+mean_tri <- sapply(1:length(tri_port), 
                          function(x) mean(tri_port[[x]],
                                           na.rm = TRUE))
 
 # Mean slope
-mean_slope_port <- sapply(1:length(slope_port), 
-                        function(x) mean(tri_port[[x]],
+mean_slope<- sapply(1:length(slope_port), 
+                        function(x) mean(slope_port[[x]],
                                          na.rm = TRUE))
 
 ## Slope at the port
-slope_port  <- raster::extract(slope, ports)
-y           <- rep(1, length(slope_port)[1])
+y <- rep(1, length(slope_port)[1])
 
-port_df <- cbind(slope_port, 
-                 elev_port, 
-                 min_elev_port, 
-                 max_elev_port, 
-                 mean_tri_port, 
-                 mean_elev_port,
+port_df <- cbind(mean_slope, 
+                 mean_tri, 
+                 min_elev,
+                 max_elev, 
+                 mean_elev,
                  y)
+
 
 ## Sampled locations
 # Buffer around each point
 a <- gBuffer(sample, width = bwidth, byid=TRUE)
 
 # Elevation in buffer
-b <- raster::extract(elev_below, a)
-tri_port <- raster::extract(elev, a)
+b <- raster::extract(elev, a)
+tri_sample <- raster::extract(elev, a)
+slope_sample <- raster::extract(slope, a)
 
 # Min.elevation
-min_elev_sample <- sapply(1:length(b), 
+min_elev <- sapply(1:length(b), 
                           function(x) min(b[[x]], 
                                           na.rm = TRUE))
 
 # Max. Min.elevation
-max_elev_sample <- sapply(1:length(b), 
+max_elev <- sapply(1:length(b), 
                           function(x) max(b[[x]], 
                                           na.rm = TRUE))
 
 # Mean elevation
-mean_elev_sample <- sapply(1:length(b), 
+mean_elev <- sapply(1:length(b), 
                           function(x) mean(b[[x]], 
                                            na.rm = TRUE))
 
 # Mean terrain ruggedness
-mean_tri_sample <- sapply(1:length(tri_port), 
-                           function(x) mean(tri_port[[x]], 
+mean_tri <- sapply(1:length(tri_sample), 
+                           function(x) mean(tri_sample[[x]], 
                                             na.rm = TRUE))
 
-slope_sample <- raster::extract(slope, sample)
+# Mean slope
+mean_slope <- sapply(1:length(slope_sample), 
+                          function(x) mean(slope_sample[[x]],
+                                           na.rm = TRUE))
+
 y <- rep(0, length(slope_sample)[1])
 
-no_port_df <- cbind(slope_sample, 
-                    mean_tri_sample, 
-                    min_elev_sample,
-                    max_elev_sample, 
-                    mean_elev_sample,
+no_port_df <- cbind(mean_slope, 
+                    mean_tri, 
+                    min_elev,
+                    max_elev, 
+                    mean_elev,
                     y)
-
-
-
 
 
 ## Generating dataframe for prediction
 pred_dataframe <- rbind(port_df, no_port_df) %>% 
   data.frame() %>%
   # filter(!is.na(slope_port)) %>% 
-  mutate(y=as.factor(y)) %>% 
-  rename(slope=slope_port,
-         aspect=aspect_port,
-         mean_tri=mean_tri_port,
-         min_elev=min_elev_port, 
-         max_elev=max_elev_port,
-         mean_elev=mean_elev_port) %>% 
-  mutate(slope2=slope^2,
-         aspect2=aspect^2)
+  mutate(y=as.factor(y), 
+         mean_slope2=mean_slope^2,
+         max_elev2=max_elev^2, 
+         min_elev2=min_elev^2, 
+         mean_tri2=mean_tri^2,
+         slope_mean_tri=mean_slope*mean_tri, 
+         max_elev_slope=max_elev*mean_slope, 
+         min_elev_slope=min_elev*mean_slope,
+         min_elev_max_elev = min_elev*max_elev,
+         slope_mean_tri2=mean_slope2*mean_tri2, 
+         max_elev_slope2=max_elev2*mean_slope2, 
+         min_elev_slope2=min_elev2*mean_slope2,
+         min_elev_max_elev2 = min_elev2*max_elev2)
 
+## Resampling the order of the rows
 pred_dataframe <- pred_dataframe[sample(nrow(pred_dataframe)),] 
 # pred_dataframe <-pred_dataframe %>% select(-elev_port)
-
-pred_dataframe_1 <- pred_dataframe %>% dplyr::select(-elev_port) %>% 
-  filter(!is.na(mean_elev))
-
-
 
 
 
