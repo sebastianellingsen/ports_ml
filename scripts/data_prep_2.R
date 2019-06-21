@@ -21,19 +21,18 @@ p_load(tidyverse,
        caret)
 
 newcrs <- CRS("+proj=moll +datum=WGS84 +units=km")
-bwidth <- 15
+bwidth <- 3
 
 ## Ports 
 ports <- readOGR("data/WPI_Shapefiles/WPI_Shapefile2010", "WPI")
 ports <- ports[!is.na(ports$HARBORSIZE),]
-ports <- ports[ports$HARBORSIZE!="V",]
+# ports <- ports[ports$HARBORSIZE!="V",]
 
 
 ## Coastline
 coastline10 <- ne_download(scale = 10, 
                            type = 'coastline', 
                            category = 'physical')
-
 
 ## Countries
 countries10 <- ne_download(scale = 10, 
@@ -80,7 +79,7 @@ sample <- spsample(coastline10,
                    type = "random", 
                    method="Line")
 sample <- sample[sample(length(sample)),] 
-sample <- sample[1:1514]
+sample <- sample[1:3714]
 
 
 ## Extracting values
@@ -94,6 +93,15 @@ a <- gBuffer(ports, width = bwidth, byid=TRUE)
 b <- raster::extract(elev, a)
 tri_port <- raster::extract(elev, a)
 slope_port  <- raster::extract(slope, a)
+
+# Elevation 
+elevation_p <- raster::extract(elev, sample)
+
+# Terrain ruggedness 
+tri_p <- raster::extract(tri, sample)
+
+# Slope 
+slope_p <- raster::extract(slope, sample)
 
 # Min. elevation
 min_elev <- sapply(1:length(b), 
@@ -128,6 +136,9 @@ port_df <- cbind(mean_slope,
                  min_elev,
                  max_elev, 
                  mean_elev,
+                 elevation_p,
+                 tri_p,
+                 slope_p,
                  y)
 
 
@@ -139,6 +150,16 @@ a <- gBuffer(sample, width = bwidth, byid=TRUE)
 b <- raster::extract(elev, a)
 tri_sample <- raster::extract(elev, a)
 slope_sample <- raster::extract(slope, a)
+
+# Elevation 
+elevation_p <- raster::extract(elev, sample)
+
+# Terrain ruggedness 
+tri_p <- raster::extract(tri, sample)
+
+# Slope 
+slope_p <- raster::extract(slope, sample)
+
 
 # Min.elevation
 min_elev <- sapply(1:length(b), 
@@ -172,6 +193,9 @@ no_port_df <- cbind(mean_slope,
                     min_elev,
                     max_elev, 
                     mean_elev,
+                    elevation_p,
+                    tri_p,
+                    slope_p,
                     y)
 
 
@@ -179,25 +203,11 @@ no_port_df <- cbind(mean_slope,
 pred_dataframe <- rbind(port_df, no_port_df) %>% 
   data.frame() %>%
   # filter(!is.na(slope_port)) %>% 
-  mutate(y=as.factor(y), 
-         mean_slope2=mean_slope^2,
-         max_elev2=max_elev^2, 
-         min_elev2=min_elev^2, 
-         mean_tri2=mean_tri^2,
-         slope_mean_tri=mean_slope*mean_tri, 
-         max_elev_slope=max_elev*mean_slope, 
-         min_elev_slope=min_elev*mean_slope,
-         min_elev_max_elev = min_elev*max_elev,
-         slope_mean_tri2=mean_slope2*mean_tri2, 
-         max_elev_slope2=max_elev2*mean_slope2, 
-         min_elev_slope2=min_elev2*mean_slope2,
-         min_elev_max_elev2 = min_elev2*max_elev2)
+  mutate(y=as.factor(y))
 
 ## Resampling the order of the rows
 pred_dataframe <- pred_dataframe[sample(nrow(pred_dataframe)),] 
-# pred_dataframe <-pred_dataframe %>% select(-elev_port)
-
-
+pred_dataframe <- pred_dataframe %>% filter(!is.na(slope_p))
 
 
 
