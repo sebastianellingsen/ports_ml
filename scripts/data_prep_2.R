@@ -25,8 +25,8 @@ bwidth <- 3
 
 ## Ports 
 ports <- readOGR("data/WPI_Shapefiles/WPI_Shapefile2010", "WPI")
-ports <- ports[!is.na(ports$HARBORSIZE),]
-# ports <- ports[ports$HARBORSIZE!="V",]
+ports <- ports[!is.na(ports$HARBORTYPE),]
+ports <- ports[ports$HARBORTYPE!="RN",]
 
 
 ## Coastline
@@ -79,7 +79,7 @@ sample <- spsample(coastline10,
                    type = "random", 
                    method="Line")
 sample <- sample[sample(length(sample)),] 
-sample <- sample[1:3714]
+sample <- sample[1:3027]
 
 
 ## Extracting values
@@ -95,13 +95,13 @@ tri_port <- raster::extract(elev, a)
 slope_port  <- raster::extract(slope, a)
 
 # Elevation 
-elevation_p <- raster::extract(elev, sample)
+elevation_p <- raster::extract(elev, ports)
 
 # Terrain ruggedness 
-tri_p <- raster::extract(tri, sample)
+tri_p <- raster::extract(tri, ports)
 
 # Slope 
-slope_p <- raster::extract(slope, sample)
+slope_p <- raster::extract(slope, ports)
 
 # Min. elevation
 min_elev <- sapply(1:length(b), 
@@ -131,6 +131,34 @@ mean_slope<- sapply(1:length(slope_port),
 ## Slope at the port
 y <- rep(1, length(slope_port)[1])
 
+## Adding continent 
+cont <- c()
+k <- 1
+for (i in a@data$INDEX_NO){
+  
+  point <- a[a@data$INDEX_NO==i,]
+  cont[k] <- over(point,countries10)$SUBREGION
+  
+  print(k/length(a@data$INDEX_NO))
+  k <- k+1
+  
+}
+cont <- ifelse(is.na(cont), "na", cont)
+
+## Adding information on the coastline length
+len <- c()
+k <- 1
+for (i in a@data$INDEX_NO){
+  
+  point <- a[a@data$INDEX_NO==i,]
+  len[k] <- ifelse(!is.null(crop(coastline10, point)),
+                   rgeos::gLength(crop(coastline10, point)),0)
+
+  print(k/length(a@polygons))
+  k <- k+1
+}
+
+## Combining the data 
 port_df <- cbind(mean_slope, 
                  mean_tri, 
                  min_elev,
@@ -139,6 +167,8 @@ port_df <- cbind(mean_slope,
                  elevation_p,
                  tri_p,
                  slope_p,
+                 cont,
+                 len,
                  y)
 
 
@@ -188,6 +218,35 @@ mean_slope <- sapply(1:length(slope_sample),
 
 y <- rep(0, length(slope_sample)[1])
 
+
+## Adding continent 
+cont <- c()
+k <- 1
+for (i in 1:length(a@polygons)){
+  
+  point <- a[i]
+  cont[k] <- over(point,countries10)$SUBREGION
+  
+  print(k/length(a@polygons))
+  k <- k+1
+  
+}
+cont <- ifelse(is.na(cont), "na", cont)
+
+
+## Adding information on the coastline length
+len <- c()
+k <- 1
+for (i in 1:length(a@polygons)){
+  
+  len[i] <- rgeos::gLength(crop(coastline10, a[i]))
+  
+  print(k/length(a@polygons))
+  k <- k+1
+  
+}
+
+## Combining the data 
 no_port_df <- cbind(mean_slope, 
                     mean_tri, 
                     min_elev,
@@ -196,8 +255,9 @@ no_port_df <- cbind(mean_slope,
                     elevation_p,
                     tri_p,
                     slope_p,
+                    cont,
+                    len,
                     y)
-
 
 ## Generating dataframe for prediction
 pred_dataframe <- rbind(port_df, no_port_df) %>% 
