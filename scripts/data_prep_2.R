@@ -172,7 +172,7 @@ port_df <- cbind(mean_slope,
                  y)
 
 
-## Sampled locations
+## Sampled locations 
 # Buffer around each point
 a <- gBuffer(sample, width = bwidth, byid=TRUE)
 
