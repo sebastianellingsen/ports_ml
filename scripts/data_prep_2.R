@@ -137,7 +137,7 @@ k <- 1
 for (i in a@data$INDEX_NO){
   
   point <- a[a@data$INDEX_NO==i,]
-  cont[k] <- over(point,countries10)$SUBREGION
+  cont[k] <- over(point,countries10)$CONTINENT
   
   print(k/length(a@data$INDEX_NO))
   k <- k+1
@@ -225,7 +225,7 @@ k <- 1
 for (i in 1:length(a@polygons)){
   
   point <- a[i]
-  cont[k] <- over(point,countries10)$SUBREGION
+  cont[k] <- over(point,countries10)$CONTINENT
   
   print(k/length(a@polygons))
   k <- k+1
@@ -243,7 +243,6 @@ for (i in 1:length(a@polygons)){
   
   print(k/length(a@polygons))
   k <- k+1
-  
 }
 
 ## Combining the data 
@@ -267,12 +266,6 @@ pred_dataframe <- rbind(port_df, no_port_df) %>%
 
 ## Resampling the order of the rows
 pred_dataframe <- pred_dataframe[sample(nrow(pred_dataframe)),] 
-pred_dataframe <- pred_dataframe %>% filter(!is.na(slope_p))
-
-
-
-
-
-
+pred_dataframe1 <- pred_dataframe %>% filter(!is.na(slope_p)) 
 
 
