@@ -137,7 +137,7 @@ k <- 1
 for (i in a@data$INDEX_NO){
   
   point <- a[a@data$INDEX_NO==i,]
-  cont[k] <- over(point,countries10)$CONTINENT
+  cont[k] <- over(point,countries10)$SUBREGION
   
   print(k/length(a@data$INDEX_NO))
   k <- k+1
@@ -146,17 +146,48 @@ for (i in a@data$INDEX_NO){
 cont <- ifelse(is.na(cont), "na", cont)
 
 ## Adding information on the coastline length
+# len <- c()
+# k <- 1
+# for (i in a@data$INDEX_NO){
+#   
+#   point <- a[a@data$INDEX_NO==i,]
+#   len[k] <- ifelse(!is.null(crop(coastline10, point)),
+#                    rgeos::gLength(crop(coastline10, point)),0)
+# 
+#   print(k/length(a@polygons))
+#   k <- k+1
+# }
+
+## Sampling points on the the coastline
+sample_coastline <- spsample(coastline10, 
+                             500000, 
+                             type = "regular", 
+                             method="Line")
+sample_coastline <- sample_coastline[sample_coastline(length(sample_coastline)),] 
+
+
+## Calculating the closest sampled point to each port
+port_on_coastline <- c()
 len <- c()
 k <- 1
-for (i in a@data$INDEX_NO){
+for (i in ports@data$INDEX_NO){
   
-  point <- a[a@data$INDEX_NO==i,]
-  len[k] <- ifelse(!is.null(crop(coastline10, point)),
-                   rgeos::gLength(crop(coastline10, point)),0)
-
-  print(k/length(a@polygons))
+  ## Port i in WPI
+  point <- ports[ports@data$INDEX_NO==i,]
+  
+  ## Finding the closest on point on the coastline
+  gd <- gDistance(sample, point, byid=TRUE)
+  closest_point <- apply(gd, 1, which.min)
+  port_on_coastline <- sample[closest_point]
+  
+  ## Measuring the coastal indentation
+  port_on_coastline <- gBuffer(port_on_coastline, width = 3)
+  len[k] <-  rgeos::gLength(crop(coastline10, port_on_coastline))
+  
+  print(k/length(ports@data$INDEX_NO))
   k <- k+1
 }
+
 
 ## Combining the data 
 port_df <- cbind(mean_slope, 
@@ -225,7 +256,7 @@ k <- 1
 for (i in 1:length(a@polygons)){
   
   point <- a[i]
-  cont[k] <- over(point,countries10)$CONTINENT
+  cont[k] <- over(point,countries10)$SUBREGION
   
   print(k/length(a@polygons))
   k <- k+1
@@ -261,11 +292,18 @@ no_port_df <- cbind(mean_slope,
 ## Generating dataframe for prediction
 pred_dataframe <- rbind(port_df, no_port_df) %>% 
   data.frame() %>%
-  # filter(!is.na(slope_port)) %>% 
-  mutate(y=as.factor(y))
+  mutate(y=as.factor(y),
+         mean_slope=as.numeric(as.character(mean_slope)), 
+         mean_tri=as.numeric(as.character(mean_tri)), 
+         min_elev=as.numeric(as.character(min_elev)),
+         max_elev=as.numeric(as.character(max_elev)), 
+         max_elev=as.numeric(as.character(max_elev)), 
+         len=as.numeric(as.character(len)), 
+         mean_elev=as.numeric(as.character(mean_elev)),
+         elevation_p=as.numeric(as.character(elevation_p)),
+         tri_p=as.numeric(as.character(tri_p)),
+         slope_p=as.numeric(as.character(slope_p)))
 
 ## Resampling the order of the rows
 pred_dataframe <- pred_dataframe[sample(nrow(pred_dataframe)),] 
 pred_dataframe1 <- pred_dataframe %>% filter(!is.na(slope_p)) 
-
-
