@@ -43,6 +43,13 @@ countries110 <- ne_download(scale = 110,
                             type = 'countries', 
                             category = 'cultural')
 
+
+## Rivers
+rivers50 <- ne_download(scale = 50, 
+                        type = 'rivers_lake_centerlines', 
+                        category = 'physical')
+
+
 ## Elevation and terrain ruggedness data
 elev       <- raster("elev.grd")
 elev_below <- raster("elev_below.grd")
@@ -58,6 +65,7 @@ slope <- terrain(elev,
 countries10  <- spTransform(countries10, newcrs)
 countries110 <- spTransform(countries110, newcrs)
 coastline10  <- spTransform(coastline10, newcrs)
+rivers50 <- spTransform(rivers50, newcrs)
 ports        <- spTransform(ports, newcrs)
 
 
@@ -131,13 +139,19 @@ mean_slope<- sapply(1:length(slope_port),
 ## Slope at the port
 y <- rep(1, length(slope_port)[1])
 
-## Adding continent 
+## Adding continent and distance to closest river 
 cont <- c()
+river_dist <- c()
 k <- 1
 for (i in a@data$INDEX_NO){
   
+  ## Adding continent
   point <- a[a@data$INDEX_NO==i,]
   cont[k] <- over(point,countries10)$SUBREGION
+  
+  ## Measuring distance to river
+  river_dist[k] <- gDistance(point, rivers50)
+  
   
   print(k/length(a@data$INDEX_NO))
   k <- k+1
@@ -145,18 +159,6 @@ for (i in a@data$INDEX_NO){
 }
 cont <- ifelse(is.na(cont), "na", cont)
 
-## Adding information on the coastline length
-# len <- c()
-# k <- 1
-# for (i in a@data$INDEX_NO){
-#   
-#   point <- a[a@data$INDEX_NO==i,]
-#   len[k] <- ifelse(!is.null(crop(coastline10, point)),
-#                    rgeos::gLength(crop(coastline10, point)),0)
-# 
-#   print(k/length(a@polygons))
-#   k <- k+1
-# }
 
 ## Sampling points on the the coastline
 sample_coastline <- spsample(coastline10, 
@@ -200,6 +202,7 @@ port_df <- cbind(mean_slope,
                  slope_p,
                  cont,
                  len,
+                 river_dist,
                  y)
 
 
@@ -250,13 +253,18 @@ mean_slope <- sapply(1:length(slope_sample),
 y <- rep(0, length(slope_sample)[1])
 
 
-## Adding continent 
+## Adding continent and distance to closest river 
 cont <- c()
+river_dist <- c()
 k <- 1
 for (i in 1:length(a@polygons)){
   
+  ## Adding subregion
   point <- a[i]
   cont[k] <- over(point,countries10)$SUBREGION
+  
+  ## Measuring distance to river
+  river_dist[k] <- gDistance(point, rivers50)
   
   print(k/length(a@polygons))
   k <- k+1
@@ -287,6 +295,7 @@ no_port_df <- cbind(mean_slope,
                     slope_p,
                     cont,
                     len,
+                    river_dist,
                     y)
 
 ## Generating dataframe for prediction
@@ -299,6 +308,7 @@ pred_dataframe <- rbind(port_df, no_port_df) %>%
          max_elev=as.numeric(as.character(max_elev)), 
          max_elev=as.numeric(as.character(max_elev)), 
          len=as.numeric(as.character(len)), 
+         river_dist=as.numeric(as.character(river_dist)), 
          mean_elev=as.numeric(as.character(mean_elev)),
          elevation_p=as.numeric(as.character(elevation_p)),
          tri_p=as.numeric(as.character(tri_p)),
@@ -307,3 +317,8 @@ pred_dataframe <- rbind(port_df, no_port_df) %>%
 ## Resampling the order of the rows
 pred_dataframe <- pred_dataframe[sample(nrow(pred_dataframe)),] 
 pred_dataframe1 <- pred_dataframe %>% filter(!is.na(slope_p)) 
+
+
+
+
+
