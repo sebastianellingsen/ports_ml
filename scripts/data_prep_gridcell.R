@@ -8,7 +8,7 @@
 
 
 ## Nighlights data
-# lights <- raster("data/nightlights/F182010.v4/F182010.v4d_web.stable_lights.avg_vis.tif")
+lights <- raster("data/nightlights/F182010.v4/F182010.v4d_web.stable_lights.avg_vis.tif")
 # lights_small <- aggregate(lights, 2)
 # lights_small_projected <- projectRaster(lights_small,
 #                                         crs = newcrs,
@@ -144,32 +144,33 @@ bio15_projected <- projectRaster(bio15,
                                  method = "bilinear")
 
 # BIO17 = Precipitation of Driest Quarter
-bio16 <- raster(bio, layer=17)   
-bio16 <- aggregate(bio16, 2)
-bio16_projected <- projectRaster(bio16, 
-                                 crs = newcrs, 
-                                 method = "bilinear")
-
-# BIO18 = Precipitation of Warmest Quarter
-bio17 <- raster(bio, layer=18)   
+bio17 <- raster(bio, layer=17)   
 bio17 <- aggregate(bio17, 2)
 bio17_projected <- projectRaster(bio17, 
                                  crs = newcrs, 
                                  method = "bilinear")
 
-# BIO19 = Precipitation of Coldest Quarter
-bio18 <- raster(bio, layer=19)   
+# BIO18 = Precipitation of Warmest Quarter
+bio18 <- raster(bio, layer=18)   
 bio18 <- aggregate(bio18, 2)
 bio18_projected <- projectRaster(bio18, 
                                  crs = newcrs, 
                                  method = "bilinear")
 
-# BIO20 = Precipitation of Coldest Quarter
-bio19 <- raster(bio, layer=20)   
+# BIO19 = Precipitation of Coldest Quarter
+bio19 <- raster(bio, layer=19)   
 bio19 <- aggregate(bio19, 2)
 bio19_projected <- projectRaster(bio19, 
                                  crs = newcrs, 
                                  method = "bilinear")
+
+# BIO20 = Precipitation of Coldest Quarter
+bio20 <- raster(bio, layer=20)   
+bio20 <- aggregate(bio19, 2)
+bio20_projected <- projectRaster(bio20, 
+                                 crs = newcrs, 
+                                 method = "bilinear")
+
 # Distance to mineral deposit
 mines <- readOGR("data/mines/ofr20051294/ofr20051294.shp", 
                  "ofr20051294")
@@ -182,45 +183,15 @@ coffee_projected <- projectRaster(coffee,
                                   crs = newcrs, 
                                   method = "bilinear")
 
-# Tea suitabilty 
-tea <- raster("/Users/sebastianellingsen/Dropbox/ports_ml/Data/crops/tea/res03_crav6190i_siir_tea.tif")
-tea_projected <- projectRaster(tea, 
-                               crs = newcrs, 
-                               method = "bilinear")
-
 # Tobacco suitabilty 
 tobacco <- raster("/Users/sebastianellingsen/Dropbox/ports_ml/Data/crops/tobacco/res03_crav6190l_silr_tob.tif")
 tobacco_projected <- projectRaster(tobacco, 
                                crs = newcrs, 
                                method = "bilinear")
 
-# Banana suitabilty 
-banana <- raster("/Users/sebastianellingsen/Dropbox/ports_ml/Data/crops/banana/res03_crav6190h_sihr_ban.tif")
-banana_projected <- projectRaster(banana, 
-                                   crs = newcrs, 
-                                   method = "bilinear")
-
-# Cacao suitabilty 
-cacao <- raster("/Users/sebastianellingsen/Dropbox/ports_ml/Data/crops/cacao/res03_crav6190h_sihr_coc.tif")
-cacao_projected <- projectRaster(cacao, 
-                                 crs = newcrs, 
-                                 method = "bilinear")
-
-# Citrus suitabilty 
-citrus <- raster("/Users/sebastianellingsen/Dropbox/ports_ml/Data/crops/citrus/res03_crav6190l_silr_cit.tif")
-citrus_projected <- projectRaster(citrus, 
-                                  crs = newcrs, 
-                                  method = "bilinear")
-
 # Cotton suitabilty 
 cotton <- raster("/Users/sebastianellingsen/Dropbox/ports_ml/Data/crops/cotton/res03_crav6190l_silr_cot.tif")
 cotton_projected <- projectRaster(cotton, 
-                                  crs = newcrs, 
-                                  method = "bilinear")
-
-# Palm oil suitabilty 
-palm_oil <- raster("/Users/sebastianellingsen/Dropbox/ports_ml/Data/crops/palm_oil/res03_crav6190l_silr_olp.tif")
-palm_oil_projected <- projectRaster(palm_oil, 
                                   crs = newcrs, 
                                   method = "bilinear")
 
@@ -229,12 +200,6 @@ sugarcane <- raster("/Users/sebastianellingsen/Dropbox/ports_ml/Data/crops/sugar
 sugarcane_projected <- projectRaster(sugarcane, 
                                     crs = newcrs, 
                                     method = "bilinear")
-
-# Soybean suitabilty 
-soybean <- raster("/Users/sebastianellingsen/Dropbox/ports_ml/Data/crops/soybean/res03_crav6190i_siir_soy.tif")
-soybean_projected <- projectRaster(soybean, 
-                                     crs = newcrs, 
-                                     method = "bilinear")
 
 # Elevation data
 elev <- raster("elev.grd")
@@ -267,21 +232,16 @@ bio15 <- c()
 bio16 <- c()       
 bio17 <- c()     
 bio18 <- c()      
-bio19 <- c()       
+bio19 <- c()    
+bio20 <- c()       
 slope <- c()
 max_elev <- c()
 min_elev <- c()
 mean_elev <- c()
 coffee_distance <- c()
-tea_distance <- c()
-banana_distance <- c()
 tobacco_distance <- c()
-cacao_distance <- c()
-citrus_distance <- c()
 cotton_distance <- c()
-palm_oil_distance <- c()
 sugarcane_distance <- c()
-soybean_distance <- c()
 coast_distance <- c()
 mines_distance <- c()
 
@@ -292,8 +252,8 @@ val <- function(layer, cell) {
   return(val)
 }
 
-for (i in row.names(africa@data)){
-  cell <- africa[africa@data$ID==i,]
+for (i in row.names(south_america@data)){
+  cell <- south_america[south_america@data$ID==i,]
   
   ## Dependent variables
   lights_data[i] <- mean(val(lights_small_projected, cell), na.rm=TRUE)
@@ -362,88 +322,66 @@ for (i in row.names(africa@data)){
   bio18[i] <- mean(val(bio18_projected, cell), na.rm=TRUE)
   
   bio19[i] <- mean(val(bio19_projected, cell), na.rm=TRUE)
+  
+  bio19[i] <- mean(val(bio19_projected, cell), na.rm=TRUE)
+  
 
   ## Crop suitability data
   
   coffee_distance[i] <- mean(val(coffee_projected, cell), na.rm=TRUE)
   
-  tea_distance[i] <- mean(val(tea_projected, cell), na.rm=TRUE)
-  
-  banana_distance[i] <- mean(val(banana_projected, cell), na.rm=TRUE)
-  
   tobacco_distance[i] <- mean(val(tobacco_projected, cell), na.rm=TRUE)
-  
-  cacao_distance[i] <- mean(val(cacao_projected, cell), na.rm=TRUE)
-  
-  citrus_distance[i] <- mean(val(citrus_projected, cell), na.rm=TRUE)
-  
-  cotton_distance[i] <- mean(val(cotton_projected, cell), na.rm=TRUE)
-  
-  palm_oil_distance[i] <- mean(val(palm_oil_projected, cell), na.rm=TRUE)
   
   sugarcane_distance[i] <- mean(val(sugarcane_projected, cell), na.rm=TRUE)
   
-  soybean_distance[i] <- mean(val(soybean_projected, cell), na.rm=TRUE)
-  
   # Progress
   counter <- counter+1
-  print(counter/length(row.names(africa@data)))
+  print(counter/length(row.names(south_america@data)))
 }
 
 ## Joining and preparing datasets 
        
 # Outcomes
-africa@data$lights <- lights_data
-africa@data$density <- density_data
+south_america@data$lights <- lights_data
+south_america@data$density <- density_data
 
 # Controls
-africa@data$tri <- tri
-africa@data$bio1 <- bio1
-africa@data$bio2 <- bio2
-africa@data$bio3 <- bio3
-africa@data$bio4 <- bio4
-africa@data$bio5 <- bio5
-africa@data$bio5 <- bio5
-africa@data$bio7 <- bio7
-africa@data$bio8 <- bio8
-africa@data$bio9 <- bio9
-africa@data$bio10 <- bio10
-africa@data$bio11 <- bio11
-africa@data$bio12 <- bio12
-africa@data$bio13 <- bio13
-africa@data$bio14 <- bio14
-africa@data$bio15 <- bio15
-africa@data$bio16 <- bio16
-africa@data$bio17 <- bio17
-africa@data$bio18 <- bio18
-africa@data$bio19 <- bio19
-africa@data$tri <- tri
-africa@data$slope <- slope
-africa@data$max_elev <- max_elev
-africa@data$min_elev <- min_elev
-africa@data$mean_elev <- mean_elev
-africa@data$mine_dis <- mines_distance
-africa@data$coast_dis <- coast_distance
-africa@data$coffee_dis <- coffee_distance
-africa@data$tea_dis <- tea_distance
-africa@data$banana_dis <- banana_distance
-africa@data$tob_dis <- tobacco_distance
-africa@data$cacao_dis <- cacao_distance
-africa@data$citrus_dis <- citrus_distance
-africa@data$cotton_dis <- cotton_distance
-africa@data$palm_oil_dis <- palm_oil_distance
-africa@data$sugarcane_dis <- sugarcane_distance
-africa@data$soybean_dis <- soybean_distance
+south_america@data$tri <- tri
+south_america@data$bio1 <- bio1
+south_america@data$bio2 <- bio2
+south_america@data$bio3 <- bio3
+south_america@data$bio4 <- bio4
+south_america@data$bio5 <- bio5
+south_america@data$bio5 <- bio5
+south_america@data$bio7 <- bio7
+south_america@data$bio8 <- bio8
+south_america@data$bio9 <- bio9
+south_america@data$bio10 <- bio10
+south_america@data$bio11 <- bio11
+south_america@data$bio12 <- bio12
+south_america@data$bio13 <- bio13
+south_america@data$bio14 <- bio14
+south_america@data$bio15 <- bio15
+south_america@data$bio16 <- bio16
+south_america@data$bio17 <- bio17
+south_america@data$bio18 <- bio18
+south_america@data$bio19 <- bio19
+south_america@data$bio20 <- bio20
+south_america@data$tri <- tri
+south_america@data$slope <- slope
+south_america@data$max_elev <- max_elev
+south_america@data$min_elev <- min_elev
+south_america@data$mean_elev <- mean_elev
+south_america@data$mine_dis <- mines_distance
+south_america@data$coast_dis <- coast_distance
+south_america@data$coffee_dis <- coffee_distance
+south_america@data$tob_dis <- tobacco_distance
+south_america@data$cotton_dis <- cotton_distance
+south_america@data$sugarcane_dis <- sugarcane_distance
 
 ## Adding longitude and latitude
-africa@data$long <- coordinates(africa)[,1]
-africa@data$lat <- coordinates(africa)[,2]
-
-
-
-
-
-
+south_america@data$long <- coordinates(south_america)[,1]
+south_america@data$lat <- coordinates(south_america)[,2]
 
 
 
