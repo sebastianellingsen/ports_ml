@@ -51,10 +51,8 @@ rivers50 <- ne_download(scale = 50,
 
 
 ## Elevation and terrain ruggedness data
-elev       <- raster("elev.grd")
 elev_below <- raster("elev_below.grd")
 tri        <- raster("tri.grd")
-tri_below  <- raster("tri_below.grd")
 
 slope <- terrain(elev, 
                  opt='slope', 
@@ -165,7 +163,7 @@ sample_coastline <- spsample(coastline10,
                              500000, 
                              type = "regular", 
                              method="Line")
-sample_coastline <- sample_coastline[sample_coastline(length(sample_coastline)),] 
+sample_coastline <- sample_coastline[sample(length(sample_coastline)),] 
 
 
 ## Calculating the closest sampled point to each port
