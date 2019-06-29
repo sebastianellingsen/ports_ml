@@ -10,6 +10,13 @@ sample <- spsample(coastline_study_area,
 sample <- sample[sample(length(sample)),] 
 sample <- sample[1:3027]
 
+elev_below <- raster("elev_below.grd")
+tri        <- raster("tri.grd")
+
+slope <- terrain(elev, 
+                 opt='slope', 
+                 unit='radians', 
+                 neighbors=8)
 
 # Buffer around each point
 a <- gBuffer(sample, width = bwidth, byid=TRUE)
@@ -114,9 +121,6 @@ sps_df_tmp <- SpatialPolygonsDataFrame(a,
 # sample_df <- sps_df_tmp@data %>%
 #   filter(!is.na(slope)) 
 
-sample_df <- sample_df %>%
-  filter(!is.na(slope))
-
 # Fit model on the prediction dataset
 # load("output/pred_dataframe3.rds")
 
@@ -135,8 +139,8 @@ sample_df$prediction <- ifelse(prediction1>1.55,1,0)
 ID <- rownames(sample_df)
 predicted_ports <- sps_df_tmp[rownames(sps_df_tmp@data)%in%ID,]
 predicted_ports <- SpatialPolygonsDataFrame(predicted_ports, 
-                                       sample_df, 
-                                       match.ID = TRUE)
+                                            sample_df, 
+                                            match.ID = TRUE)
 all_cells <- predicted_ports
 predicted_ports <- predicted_ports[predicted_ports@data$prediction==1,]
 
@@ -146,20 +150,20 @@ predicted_ports <- predicted_ports[predicted_ports@data$prediction==1,]
 distance_pport <- c()
 pr_port <- c()
 distance_port_locations <- c()
-counter <- 0
+k <- 1
 
 for (i in south_america@data$ID){
   cell <- south_america[south_america@data$ID==i,]
   
-  distance_pport[i] <- gDistance(predicted_ports, cell)
-  distance_port_locations[i] <- gDistance(ports, cell)
+  distance_pport[k] <- gDistance(predicted_ports, cell)
+  distance_port_locations[k] <- gDistance(ports, cell)
   
   ## Accessing port probability
-  pr_port[i] <- ifelse(!is.na(over(cell,all_cells)$pr_port), 
+  pr_port[k] <- ifelse(!is.na(over(cell,all_cells)$pr_port), 
                       over(cell,all_cells)$pr_port, 1)
   
-  counter <- counter+1
-  print(counter/length(row.names(south_america@data)))
+  k <- k+1
+  print(k/length(row.names(south_america@data)))
 }
 
 south_america@data$dis_pport <- distance_pport
