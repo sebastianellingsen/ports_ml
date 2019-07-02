@@ -18,7 +18,8 @@ p_load(tidyverse,
        tictoc, 
        spatialEco, 
        ranger, 
-       caret)
+       caret,
+       lfe)
 
 newcrs <- CRS("+proj=moll +datum=WGS84 +units=km")
 bwidth <- 3
@@ -26,7 +27,7 @@ bwidth <- 3
 ## Ports 
 ports <- readOGR("data/WPI_Shapefiles/WPI_Shapefile2010", "WPI")
 ports <- ports[!is.na(ports$HARBORTYPE),]
-ports <- ports[ports$HARBORTYPE!="RN",]
+ports <- ports[ports$HARBORTYPE=="CN",]
 
 
 ## Coastline
@@ -51,7 +52,7 @@ rivers50 <- ne_download(scale = 50,
 
 
 ## Elevation and terrain ruggedness data
-elev_below <- raster("elev_below.grd")
+elev <- raster("elev.grd")
 tri        <- raster("tri.grd")
 
 slope <- terrain(elev, 
@@ -77,15 +78,6 @@ small <- c("Vanatu", "San Marino", "Vatican", "Fiji", "Solomon Islands",
            "Federated States of Micronesia", "Palau", "Samoa", "Nauru")
 
 study_area <- countries10[!(countries10$SOVEREIGNT %in% small),]
-
-
-## Make a random sample of points on the coast
-sample <- spsample(coastline10, 
-                   5000, 
-                   type = "random", 
-                   method="Line")
-sample <- sample[sample(length(sample)),] 
-sample <- sample[1:3027]
 
 
 ## Extracting values
@@ -176,9 +168,9 @@ for (i in ports@data$INDEX_NO){
   point <- ports[ports@data$INDEX_NO==i,]
   
   ## Finding the closest on point on the coastline
-  gd <- gDistance(sample, point, byid=TRUE)
+  gd <- gDistance(sample_coastline, point, byid=TRUE)
   closest_point <- apply(gd, 1, which.min)
-  port_on_coastline <- sample[closest_point]
+  port_on_coastline <- sample_coastline[closest_point]
   
   ## Measuring the coastal indentation
   port_on_coastline <- gBuffer(port_on_coastline, width = 3)
@@ -203,6 +195,13 @@ port_df <- cbind(mean_slope,
                  river_dist,
                  y)
 
+
+sample <- spsample(coastline10, 
+                   5000, 
+                   type = "random", 
+                   method="Line")
+sample <- sample[sample(length(sample)),] 
+sample <- sample[1:3027]
 
 ## Sampled locations 
 # Buffer around each point
@@ -315,6 +314,5 @@ pred_dataframe <- rbind(port_df, no_port_df) %>%
 ## Resampling the order of the rows
 pred_dataframe <- pred_dataframe[sample(nrow(pred_dataframe)),] 
 pred_dataframe1 <- pred_dataframe %>% filter(!is.na(slope_p)) 
-
 
 
