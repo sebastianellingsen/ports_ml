@@ -201,7 +201,7 @@ sample <- spsample(coastline10,
                    type = "random", 
                    method="Line")
 sample <- sample[sample(length(sample)),] 
-sample <- sample[1:3027]
+sample <- sample[1:dim(ports@data)[1]]
 
 ## Sampled locations 
 # Buffer around each point
