@@ -1,5 +1,6 @@
 ## This file samples points and fits the model 
 
+study_area <- countries10[countries10@data$CONTINENT=="South America", ]
 buffer <- gBuffer(study_area, width = 100)
 coastline_study_area <- gIntersection(coastline10, buffer)
 
@@ -8,10 +9,9 @@ sample <- spsample(coastline_study_area,
                    type = "random", 
                    method="Line")
 sample <- sample[sample(length(sample)),] 
-sample <- sample[1:3027]
 
-elev_below <- raster("elev_below.grd")
-tri        <- raster("tri.grd")
+elev <- raster("data/prepared_rasters/elev.grd")
+tri        <- raster("data/prepared_rasters/tri.grd")
 
 slope <- terrain(elev, 
                  opt='slope', 
@@ -141,33 +141,33 @@ predicted_ports <- sps_df_tmp[rownames(sps_df_tmp@data)%in%ID,]
 predicted_ports <- SpatialPolygonsDataFrame(predicted_ports, 
                                             sample_df, 
                                             match.ID = TRUE)
-all_cells <- predicted_ports
-predicted_ports <- predicted_ports[predicted_ports@data$prediction==1,]
-
-# load("/Users/sebastianellingsen/Dropbox/ports_ml/africa.Rda")
-
-# Adding distance of the ports and prediceted port
-distance_pport <- c()
-pr_port <- c()
-distance_port_locations <- c()
-k <- 1
-
-for (i in south_america@data$ID){
-  cell <- south_america[south_america@data$ID==i,]
-  
-  distance_pport[k] <- gDistance(predicted_ports, cell)
-  distance_port_locations[k] <- gDistance(ports, cell)
-  
-  ## Accessing port probability
-  pr_port[k] <- ifelse(!is.na(over(cell,all_cells)$pr_port), 
-                      over(cell,all_cells)$pr_port, 1)
-  
-  k <- k+1
-  print(k/length(row.names(south_america@data)))
-}
-
-south_america@data$dis_pport <- distance_pport
-south_america@data$dis_port <- distance_port_locations
-south_america@data$pr_port <- pr_port-1
+# all_cells <- predicted_ports
+# predicted_ports <- predicted_ports[predicted_ports@data$prediction==1,]
+# 
+# # load("/Users/sebastianellingsen/Dropbox/ports_ml/africa.Rda")
+# 
+# # Adding distance of the ports and prediceted port
+# distance_pport <- c()
+# pr_port <- c()
+# distance_port_locations <- c()
+# k <- 1
+# 
+# for (i in south_america@data$ID){
+#   cell <- south_america[south_america@data$ID==i,]
+#   
+#   distance_pport[k] <- gDistance(predicted_ports, cell)
+#   distance_port_locations[k] <- gDistance(ports, cell)
+#   
+#   ## Accessing port probability
+#   pr_port[k] <- ifelse(!is.na(over(cell,all_cells)$pr_port), 
+#                       over(cell,all_cells)$pr_port, 1)
+#   
+#   k <- k+1
+#   print(k/length(row.names(south_america@data)))
+# }
+# 
+# south_america@data$dis_pport <- distance_pport
+# south_america@data$dis_port <- distance_port_locations
+# south_america@data$pr_port <- pr_port-1
 
 
