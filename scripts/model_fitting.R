@@ -1,6 +1,23 @@
 ## This file samples points and fits the model 
 
-study_area <- countries10[countries10@data$CONTINENT=="South America", ]
+sa_countries <- c("Argentina",
+                  "Uruguay",
+                  "Paraguay",
+                  "Chile",
+                  "Bolivia",
+                  "Peru",
+                  "Colombia",
+                  "Venezuela",
+                  "Ecuador",
+                  "Brazil",
+                  "Panama",
+                  "Costa Rica",
+                  "Nicaragua",
+                  "Honduras",
+                  "Guatemala",
+                  "Mexico")
+
+study_area <- countries10[countries10@data$ADMIN %in% sa_countries, ]
 buffer <- gBuffer(study_area, width = 100)
 coastline_study_area <- gIntersection(coastline10, buffer)
 
@@ -10,20 +27,19 @@ sample <- spsample(coastline_study_area,
                    method="Line")
 sample <- sample[sample(length(sample)),] 
 
-elev <- raster("data/prepared_rasters/elev.grd")
+elev       <- raster("data/prepared_rasters/elev.grd")
 tri        <- raster("data/prepared_rasters/tri.grd")
-
-slope <- terrain(elev, 
-                 opt='slope', 
-                 unit='radians', 
-                 neighbors=8)
+slope      <- terrain(elev, 
+                      opt='slope', 
+                      unit='radians', 
+                      neighbors=8)
 
 # Buffer around each point
 a <- gBuffer(sample, width = bwidth, byid=TRUE)
 
 # Elevation in buffer
-b <- raster::extract(elev, a)
-tri_sample <- raster::extract(elev, a)
+b            <- raster::extract(elev, a)
+tri_sample   <- raster::extract(elev, a)
 slope_sample <- raster::extract(slope, a)
 
 # Elevation 
@@ -35,27 +51,22 @@ tri_p <- raster::extract(tri, sample)
 # Slope 
 slope_p <- raster::extract(slope, sample)
 
-
 # Min.elevation
 min_elev <- sapply(1:length(b), 
                    function(x) min(b[[x]], 
                                    na.rm = TRUE))
-
 # Max. Min.elevation
 max_elev <- sapply(1:length(b), 
                    function(x) max(b[[x]], 
                                    na.rm = TRUE))
-
 # Mean elevation
 mean_elev <- sapply(1:length(b), 
                     function(x) mean(b[[x]], 
                                      na.rm = TRUE))
-
 # Mean terrain ruggedness
 mean_tri <- sapply(1:length(tri_sample), 
                    function(x) mean(tri_sample[[x]], 
                                     na.rm = TRUE))
-
 # Mean slope
 mean_slope <- sapply(1:length(slope_sample), 
                      function(x) mean(slope_sample[[x]],
@@ -65,13 +76,13 @@ y <- rep(0, length(slope_sample)[1])
 
 
 ## Adding continent and distance to closest river 
-cont <- c()
-river_dist <- c()
-k <- 1
+cont        <- c()
+river_dist  <- c()
+k           <- 1
 for (i in 1:length(a@polygons)){
   
   ## Adding subregion
-  point <- a[i]
+  point   <- a[i]
   cont[k] <- over(point,countries10)$SUBREGION
   
   ## Measuring distance to river
@@ -86,7 +97,7 @@ cont <- ifelse(is.na(cont), "na", cont)
 
 ## Adding information on the coastline length
 len <- c()
-k <- 1
+k   <- 1
 for (i in 1:length(a@polygons)){
   
   len[i] <- rgeos::gLength(crop(coastline10, a[i]))
@@ -110,7 +121,7 @@ sample_df <- cbind(mean_slope,
               data.frame() 
 
 # Adding the attributes to the shapefile 
-ID <- sapply(a@polygons, function(x) x@ID)
+ID                   <- sapply(a@polygons, function(x) x@ID)
 row.names(sample_df) <- ID
 
 sps_df_tmp <- SpatialPolygonsDataFrame(a, 
@@ -122,28 +133,27 @@ sps_df_tmp <- SpatialPolygonsDataFrame(a,
 #   filter(!is.na(slope)) 
 
 # Fit model on the prediction dataset
-# load("output/pred_dataframe3.rds")
 
-df1 <- pred_dataframe1 
+df1    <- pred_dataframe1 
 model1 <- ranger(formula= as.numeric(y)~., 
                  data=df1, 
-                 num.trees = 5000, 
+                 num.trees = 1000, 
                  mtry =5)
 
-prediction1 <- predict(model1, data=sample_df)
-prediction1 <- prediction1[["predictions"]]
-sample_df$pr_port <- prediction1
-sample_df$prediction <- ifelse(prediction1>1.55,1,0)
+prediction1          <- predict(model1, data=sample_df)
+prediction1          <- prediction1[["predictions"]]
+sample_df$pr_port    <- prediction1
+sample_df$prediction <- ifelse(prediction1>1.4,1,0)
 
 ## Matching with the spatial data
-ID <- rownames(sample_df)
+ID              <- rownames(sample_df)
 predicted_ports <- sps_df_tmp[rownames(sps_df_tmp@data)%in%ID,]
 predicted_ports <- SpatialPolygonsDataFrame(predicted_ports, 
                                             sample_df, 
                                             match.ID = TRUE)
 # all_cells <- predicted_ports
-# predicted_ports <- predicted_ports[predicted_ports@data$prediction==1,]
-# 
+predicted_ports1 <- predicted_ports[predicted_ports@data$prediction==1, ]
+
 # # load("/Users/sebastianellingsen/Dropbox/ports_ml/africa.Rda")
 # 
 # # Adding distance of the ports and prediceted port
