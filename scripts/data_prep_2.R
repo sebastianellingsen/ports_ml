@@ -52,8 +52,8 @@ rivers50 <- ne_download(scale = 50,
 
 
 ## Elevation and terrain ruggedness data
-elev <- raster("elev.grd")
-tri        <- raster("tri.grd")
+elev       <- raster("data/prepared_rasters/elev.grd")
+tri        <- raster("data/prepared_rasters/tri.grd")
 
 slope <- terrain(elev, 
                  opt='slope', 
@@ -64,7 +64,7 @@ slope <- terrain(elev,
 countries10  <- spTransform(countries10, newcrs)
 countries110 <- spTransform(countries110, newcrs)
 coastline10  <- spTransform(coastline10, newcrs)
-rivers50 <- spTransform(rivers50, newcrs)
+rivers50     <- spTransform(rivers50, newcrs)
 ports        <- spTransform(ports, newcrs)
 
 
@@ -74,8 +74,15 @@ ports        <- spTransform(ports, newcrs)
 ################################################################################
 
 ## Removing small countries
-small <- c("Vanatu", "San Marino", "Vatican", "Fiji", "Solomon Islands",
-           "Federated States of Micronesia", "Palau", "Samoa", "Nauru")
+small <- c("Vanatu", 
+           "San Marino", 
+           "Vatican", 
+           "Fiji", 
+           "Solomon Islands",
+           "Federated States of Micronesia", 
+           "Palau", 
+           "Samoa", 
+           "Nauru")
 
 study_area <- countries10[!(countries10$SOVEREIGNT %in% small),]
 
@@ -105,7 +112,6 @@ slope_p <- raster::extract(slope, ports)
 min_elev <- sapply(1:length(b), 
                         function(x) min(b[[x]],
                                         na.rm = TRUE))
-
 # Max. elevation
 max_elev <- sapply(1:length(b), 
                         function(x) max(b[[x]],
@@ -130,14 +136,14 @@ mean_slope<- sapply(1:length(slope_port),
 y <- rep(1, length(slope_port)[1])
 
 ## Adding continent and distance to closest river 
-cont <- c()
-river_dist <- c()
-k <- 1
+cont        <- c()
+river_dist  <- c()
+k           <- 1
 for (i in a@data$INDEX_NO){
   
   ## Adding continent
-  point <- a[a@data$INDEX_NO==i,]
-  cont[k] <- over(point,countries10)$SUBREGION
+  point   <-  a[a@data$INDEX_NO==i,]
+  cont[k] <-  over(point,countries10)$SUBREGION
   
   ## Measuring distance to river
   river_dist[k] <- gDistance(point, rivers50)
@@ -160,21 +166,21 @@ sample_coastline <- sample_coastline[sample(length(sample_coastline)),]
 
 ## Calculating the closest sampled point to each port
 port_on_coastline <- c()
-len <- c()
-k <- 1
+len               <- c()
+k                 <- 1
 for (i in ports@data$INDEX_NO){
   
   ## Port i in WPI
   point <- ports[ports@data$INDEX_NO==i,]
   
   ## Finding the closest on point on the coastline
-  gd <- gDistance(sample_coastline, point, byid=TRUE)
-  closest_point <- apply(gd, 1, which.min)
-  port_on_coastline <- sample_coastline[closest_point]
+  gd                <-  gDistance(sample_coastline, point, byid=TRUE)
+  closest_point     <-  apply(gd, 1, which.min)
+  port_on_coastline <-  sample_coastline[closest_point]
   
   ## Measuring the coastal indentation
-  port_on_coastline <- gBuffer(port_on_coastline, width = 3)
-  len[k] <-  rgeos::gLength(crop(coastline10, port_on_coastline))
+  port_on_coastline  <-  gBuffer(port_on_coastline, width = 3)
+  len[k]             <-   rgeos::gLength(crop(coastline10, port_on_coastline))
   
   print(k/length(ports@data$INDEX_NO))
   k <- k+1
@@ -208,9 +214,9 @@ sample <- sample[1:dim(ports@data)[1]]
 a <- gBuffer(sample, width = bwidth, byid=TRUE)
 
 # Elevation in buffer
-b <- raster::extract(elev, a)
-tri_sample <- raster::extract(elev, a)
-slope_sample <- raster::extract(slope, a)
+b            <-  raster::extract(elev, a)
+tri_sample   <-  raster::extract(elev, a)
+slope_sample <-  raster::extract(slope, a)
 
 # Elevation 
 elevation_p <- raster::extract(elev, sample)
@@ -251,13 +257,13 @@ y <- rep(0, length(slope_sample)[1])
 
 
 ## Adding continent and distance to closest river 
-cont <- c()
+cont       <- c()
 river_dist <- c()
-k <- 1
+k          <- 1
 for (i in 1:length(a@polygons)){
   
   ## Adding subregion
-  point <- a[i]
+  point   <- a[i]
   cont[k] <- over(point,countries10)$SUBREGION
   
   ## Measuring distance to river
@@ -272,7 +278,7 @@ cont <- ifelse(is.na(cont), "na", cont)
 
 ## Adding information on the coastline length
 len <- c()
-k <- 1
+k   <- 1
 for (i in 1:length(a@polygons)){
   
   len[i] <- rgeos::gLength(crop(coastline10, a[i]))
@@ -311,8 +317,70 @@ pred_dataframe <- rbind(port_df, no_port_df) %>%
          tri_p=as.numeric(as.character(tri_p)),
          slope_p=as.numeric(as.character(slope_p)))
 
+## Adding polynomials
+d <- c()
+for(i in 2:5) { 
+  
+  k <- sapply(1:11, function(x) pred_dataframe[,x]^i)
+  
+  colnames(k) <- paste(names[1:11], i, sep = "")
+  
+  d <- cbind(d, k)
+}
+polynomials <- d %>% as.data.frame() %>%  
+  dplyr::select(-c(cont2, cont3, cont4, cont5))
+
+
+## Adding interaction terms
+inter1           <- sapply(2:11, 
+                           function(x) pred_dataframe[,1]*pred_dataframe[,x])
+colnames(inter1) <- paste0("mean_slope", colnames(pred_dataframe)[2:11])
+
+inter2           <- sapply(3:11, 
+                           function(x) pred_dataframe[,2]*pred_dataframe[,x])
+colnames(inter2) <- paste0("mean_tri", colnames(pred_dataframe)[3:11])
+
+inter3           <- sapply(4:11, 
+                           function(x) pred_dataframe[,3]*pred_dataframe[,x])
+colnames(inter3) <- paste0("min_elev", colnames(pred_dataframe)[4:11])
+
+inter4           <- sapply(5:11, 
+                           function(x) pred_dataframe[,4]*pred_dataframe[,x])
+colnames(inter4) <- paste0("max_elev", colnames(pred_dataframe)[5:11])
+
+inter5           <- sapply(6:11, 
+                           function(x) pred_dataframe[,5]*pred_dataframe[,x])
+colnames(inter5) <- paste0("mean_elev", colnames(pred_dataframe)[6:11])
+
+inter6           <- sapply(7:11, 
+                           function(x) pred_dataframe[,6]*pred_dataframe[,x])
+colnames(inter6) <- paste0("elevation_p", colnames(pred_dataframe)[7:11])
+
+inter7           <- sapply(8:11, 
+                           function(x) pred_dataframe[,7]*pred_dataframe[,x])
+colnames(inter7) <- paste0("tri_p", colnames(pred_dataframe)[8:11])
+
+inter8           <- sapply(11:11, 
+                           function(x) pred_dataframe[,11]*pred_dataframe[,x])
+colnames(inter8) <- paste0("len", colnames(pred_dataframe)[11:11])
+
+
+interactions <- cbind(inter1, inter2, inter3, inter4, inter5, 
+                       inter6, inter7, inter8) %>% 
+                as.data.frame() %>% 
+                dplyr::select(-c(mean_tricont, tri_pcont, elevation_pcont, 
+                                 mean_elevcont, max_elevcont, min_elevcont, 
+                                 mean_tricont, mean_slopecont))
+
+## Adding dummy variables
+dummies         <-  model.matrix(~pred_dataframe$cont) %>% as.data.frame()
+
+## Joining the datasets
+pred_dataframe1 <- cbind(pred_dataframe, polynomials, interactions, dummies) %>% 
+  filter(!is.na(slope_p))
+
 ## Resampling the order of the rows
-pred_dataframe <- pred_dataframe[sample(nrow(pred_dataframe)),] 
-pred_dataframe1 <- pred_dataframe %>% filter(!is.na(slope_p)) 
+pred_dataframe1 <- pred_dataframe1[sample(nrow(pred_dataframe1)),] 
+
 
 
