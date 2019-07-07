@@ -245,7 +245,7 @@ prediction <- predict(fit,
                       data.matrix(sample_df), 
                       type = "response", 
                       s = lambda.min)
-sample_df$prediction <- as.numeric(ifelse(prediction>0.50,1,0))
+sample_df$prediction <- as.numeric(ifelse(prediction>0.43,1,0))
 
 
 ## Matching with the spatial data
@@ -255,7 +255,7 @@ predicted_ports <- SpatialPolygonsDataFrame(predicted_ports,
                                             sample_df, 
                                             match.ID = TRUE)
 # all_cells <- predicted_ports
-predicted_ports1 <- predicted_ports[predicted_ports@data$prediction==1, ]
+predicted_ports <- predicted_ports[predicted_ports@data$prediction==1, ]
 
 
 
