@@ -311,9 +311,10 @@ pred_dataframe <- rbind(port_df, no_port_df) %>%
 
 ## Adding polynomials
 d <- c()
+names <- colnames(pred_dataframe)[1:11]
 for(i in 2:5) { 
   
-  k <- sapply(1:11, function(x) pred_dataframe[,x]^i)
+  k <- sapply(1:11, function(x) pred_dataframe[,x]^i) 
   
   colnames(k) <- paste(names[1:11], i, sep = "")
   
