@@ -147,9 +147,6 @@ for (i in a@data$INDEX_NO){
   
   ## Measuring distance to river
   river_dist[k] <- gDistance(point, rivers50)
-  
-  
-  print(k/length(a@data$INDEX_NO))
   k <- k+1
   
 }
@@ -182,7 +179,6 @@ for (i in ports@data$INDEX_NO){
   port_on_coastline  <-  gBuffer(port_on_coastline, width = 3)
   len[k]             <-   rgeos::gLength(crop(coastline10, port_on_coastline))
   
-  print(k/length(ports@data$INDEX_NO))
   k <- k+1
 }
 
@@ -268,8 +264,6 @@ for (i in 1:length(a@polygons)){
   
   ## Measuring distance to river
   river_dist[k] <- gDistance(point, rivers50)
-  
-  print(k/length(a@polygons))
   k <- k+1
   
 }
@@ -282,8 +276,6 @@ k   <- 1
 for (i in 1:length(a@polygons)){
   
   len[i] <- rgeos::gLength(crop(coastline10, a[i]))
-  
-  print(k/length(a@polygons))
   k <- k+1
 }
 
