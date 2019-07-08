@@ -87,8 +87,6 @@ for (i in 1:length(a@polygons)){
   
   ## Measuring distance to river
   river_dist[k] <- gDistance(point, rivers50)
-  
-  print(k/length(a@polygons))
   k <- k+1
   
 }
@@ -101,8 +99,6 @@ k   <- 1
 for (i in 1:length(a@polygons)){
   
   len[i] <- rgeos::gLength(crop(coastline10, a[i]))
-  
-  print(k/length(a@polygons))
   k <- k+1
 }
 
@@ -245,18 +241,18 @@ prediction <- predict(fit,
                       data.matrix(sample_df), 
                       type = "response", 
                       s = lambda.min)
-sample_df$prediction <- as.numeric(ifelse(prediction>0.43,1,0))
+sample_df$prediction <- prediction 
+sample_df <- sample_df[order(-prediction),] 
+sample_df1 <- sample_df[1:93,]
 
 
-## Matching with the spatial data
-ID              <- rownames(sample_df)
+## Matching with the spatial data 406
+ID              <- rownames(sample_df1)
 predicted_ports <- sps_df_tmp[rownames(sps_df_tmp@data)%in%ID,]
 predicted_ports <- SpatialPolygonsDataFrame(predicted_ports, 
-                                            sample_df, 
+                                            sample_df1, 
                                             match.ID = TRUE)
-# all_cells <- predicted_ports
-predicted_ports <- predicted_ports[predicted_ports@data$prediction==1, ]
-
+# predicted_ports <- predicted_ports[]
 
 
 
