@@ -4,7 +4,7 @@
 ######################### Preparing data #######################################
 ################################################################################
 
-## Preparing packages
+## Preparing packages 
 if (!require(pacman)) install.packages("pacman")
 p_load(tidyverse, 
        sf, 
