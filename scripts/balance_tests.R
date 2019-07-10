@@ -1,39 +1,90 @@
-## This file runs balance tests for the main specification
+## This file runs balance tests for the main specification to see whether port 
+## and non-port areas are similar in terms of topographic and climatic 
+## variables. 
 
-## Preparing data for the balance test 
-p_values <- c()
-t_stat <- c()
-p_values <- c()
-mean1 <- c()
-mean0 <- c()
-variables <- c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12",
-               "13", "14", "15", "16", "17", "18", "19", "20")
+## Precipitation and climate variables
 
-africa_coast <- africa@data %>% 
-  mutate(pport_site=ifelse(ldistance_pport==0,1,0)) %>% 
-  filter(distance_coast==0) %>% 
-  dplyr::select("tri", "slope", "bio1", "bio2", "bio3", "bio4", "bio5", "bio7", 
-                "bio8", "bio9", "bio10", "bio11", "bio12", "bio13", "bio14",
-                "bio15", "bio16", "bio17", "bio18", "bio19", "long", 
-                "lat", "pport_site", "country_var")
+# BIO1  = Annual Mean Temperature 
+# BIO2  = Mean Diurnal Range (Mean of monthly (max temp - min temp))
+# BIO3  = Isothermality (BIO2/BIO7) (* 100)
+# BIO4  = Temperature Seasonality (standard deviation *100)
+# BIO5  = Max Temperature of Warmest Month
+# BIO6  = Min Temperature of Coldest Month
+# BIO7  = Temperature Annual Range (BIO5-BIO6)
+# BIO8  = Mean Temperature of Wettest Quarter
+# BIO9  = Mean Temperature of Driest Quarter
+# BIO10 = Mean Temperature of Warmest Quarter
+# BIO11 = Mean Temperature of Coldest Quarter
+# BIO12 = Annual Precipitation
+# BIO13 = Precipitation of Wettest Month
+# BIO14 = Precipitation of Driest Month
+# BIO15 = Precipitation Seasonality (Coefficient of Variation)
+# BIO16 = Precipitation of Wettest Quarter
+# BIO17 = Precipitation of Driest Quarter
+# BIO18 = Precipitation of Warmest Quarter
+# BIO19 = Precipitation of Coldest Quarter
+# BIO20 = Precipitation of Coldest Quarter
+ 
+bio = getData('worldclim', var='bio', res=2.5, lon=22.440823, lat=5.539446)
+
+for(i in 1:20) { 
+  
+  k <- projectRaster(aggregate(raster(bio, layer=1), 2), 
+                     crs = newcrs, 
+                     method = "bilinear")
+  assign(paste("bio", i, sep = "") , k)
+  print(i)
+}
+ 
+# locations of mineral depposits
+mines <- readOGR("data/mines/ofr20051294/ofr20051294.shp", 
+                 "ofr20051294")
+mines <- spTransform(mines, newcrs)
+
+
+# Coffee suitabilty 
+coffee <- raster("data/crops/coffee/res03_crav6190l_silr_cof.tif")
+coffee_projected <- projectRaster(coffee, 
+                                  crs = newcrs, 
+                                  method = "bilinear")
+
+# Tobacco suitabilty 
+tobacco <- raster("data/crops/tobacco/res03_crav6190l_silr_tob.tif")
+tobacco_projected <- projectRaster(tobacco, 
+                                   crs = newcrs, 
+                                   method = "bilinear")
+
+# Cotton suitabilty 
+cotton <- raster("data/crops/cotton/res03_crav6190l_silr_cot.tif")
+cotton_projected <- projectRaster(cotton, 
+                                  crs = newcrs, 
+                                  method = "bilinear")
+
+# Sugarcane suitabilty 
+sugarcane <- raster("data/crops/sugarcane/res03_crav6190h_sihr_suc.tif")
+sugarcane_projected <- projectRaster(sugarcane, 
+                                     crs = newcrs, 
+                                     method = "bilinear")
+
+# Elevation data
+elev <- raster("elev.grd")
 
 
 
-## Adding residuals to the dataframe
-res <- c()
-residuals <- lapply(1:20, 
-                    function(i) resid(lm(africa_coast[,i+1] ~ africa_coast[,"country_var"]))) 
-residuals <- sapply(1:20, 
-                    function(i) c(res, residuals[[i]]))
-africa_coast1 <- cbind(africa_coast,residuals)
+
+
+
+
+
+
 
 
 
 ## Balance test
-for (i in variables){
+for (i in 1:18){
   
-  port_site1 <- africa_coast1 %>% filter(pport_site==1)
-  port_site0 <- africa_coast1 %>% filter(pport_site==0)
+  port_site1 <- africa_coast1 %>% filter(pport_site.y==1)
+  port_site0 <- africa_coast1 %>% filter(pport_site.y==0)
   
   # Running the test
   v1 <- port_site1[[i]]
@@ -48,127 +99,103 @@ for (i in variables){
   t_stat <- c(t_stat, test[["statistic"]][["t"]])
 }
 
-
-## Table without Bonferroni correction
-balance_test <- cbind(variables,
-                      round(mean1, digits = 2),
+balance_test <- cbind(round(mean1, digits = 2),
                       round(mean0, digits = 2),
                       round(mean1-mean0, digits = 2),
                       round(t_stat, digits = 2),
                       round(p_values, digits = 3)) %>% 
-  as.data.frame() %>% 
-  dplyr::select(-variables)
+  as.data.frame() 
+rownames(balance_test) <- c("Tri", "Slope", "Max. elev."," Min elev.", "Coffee", 
+                            "Citrus", "Tea", "Banana", "Tobacco", "Cacao", 
+                            "Cotton", "Palm oil", "Sugar cane", "Soybean",
+                            "Annual Mean Temp.", "Annual Mean Prec.", 
+                            "Temp. seasonality", "Prec. seasonality")
 
-rownames(balance_test)[1] <- "Terrain Rugedness Index"
-rownames(balance_test)[2] <- "Average slope"
-rownames(balance_test)[3] <- "Annual Mean Temperature"
-rownames(balance_test)[4] <- "Mean Diurnal Range"
-rownames(balance_test)[5] <- "Isothermality*100"
-rownames(balance_test)[6] <- "Temperature Seasonality"
-rownames(balance_test)[7] <- "Max Temperature of Warmest Month"
-rownames(balance_test)[8] <- "Min Temperature of Coldest Month"
-rownames(balance_test)[9] <- "Temperature Annual Range"
-rownames(balance_test)[10] <- "Mean Temperature of Wettest Quarter"
-rownames(balance_test)[11] <- "Mean Temperature of Driest Quarter"
-rownames(balance_test)[12] <- "Mean Temperature of Warmest Quarter"
-rownames(balance_test)[13] <- "Mean Temperature of Coldest Quarter"
-rownames(balance_test)[14] <- "Annual Precipitation"
-rownames(balance_test)[15] <- "Precipitation of Wettest Month"
-rownames(balance_test)[16] <- "Precipitation of Driest Month"
-rownames(balance_test)[17] <- "Precipitation Seasonality"
-rownames(balance_test)[18] <- "Precipitation of Wettest Quarter"
-rownames(balance_test)[19] <- "Precipitation of Driest Quarter"
-rownames(balance_test)[20] <- "Precipitation of Warmest Quarter"
+balance_test <- stargazer(balance_test,
+                style="io",
+                column.separate = c(2, 2),
+                summary = FALSE,
+                type="latex",
+                header = FALSE,
+                float = F)
 
-colnames(balance_test)[1] <- "Mean 1"
-colnames(balance_test)[2] <- "Mean 0"
-colnames(balance_test)[3] <- "Diff."
-colnames(balance_test)[4] <- "t-stat."
-colnames(balance_test)[5] <- "p-values"
-
-# Writing out the table
-balance_test_table <- xtable(balance_test, 
-                             include.rownames=TRUE, 
-                             latex.environments = "left")
-
-comment          <- list()
-comment$pos      <- list()
-comment$pos[[1]] <- c(nrow(balance_test_table))
-comment$command  <- c(paste("\\hline \n", 
-                            "\\multicolumn{6}{c}{\\parbox{8.7cm}{\\textit{Note}: The 
-                            table displays the results from tests of equality 
-                            for variables along the coastline for areas with 
-                            and without predicted ports. The variables have
-                            been demeaned using country averages. Assumptions
-                            about equal variances is not imposed.
-                            Temperature annual range = Max temperature of warmest month/
-                            min temperature of coldest month. Mean diurnal                                                                 range = (mean of monthly (max temp - min temp).                                                                Isothermality = Mean diurnal range/ Temperature 
-                            annual range.}}  \n",
-                            sep = ""))
-
-print(xtable(balance_test_table,
-             align="lrrrrr"),
-      add.to.row = comment,
-      hline.after = c(-1, 0), size="\\tiny")  # indicates rows that will contain hlines (the last one was defined up there)
+# Remove $
+balance_test <- gsub("\\$\\$\\-\\$", "\\$\\-", balance_test)
 
 
 
-## Table with Bonferroni correction
-p_values <- p.adjust(p_values, method = "bonferroni", n = length(p_values))
+year <- c(1500,
+          1903,
+1948,
+1948,
+1821,
+1999,
+1838,
+1862,
+1894,
+1953,
+1966,
+1890,
+1891,
+2003,
+1928,
+1905,
+1912,
+1876,
+1889,
+1890,
+1880,
+1964,
+1974,
+1922,
+1883,
+1960,
+1948,
+1950,
+1928,
+1962,
+1965,
+1913,
+1866,
+1986,
+1879,
+1870,
+1925,
+1969,
+1976,
+1652,
+1840,
+1967,
+1967,
+1970,
+1970,
+1905)
 
-balance_test_bf <- cbind(variables,
-                      round(mean1, digits = 2),
-                      round(mean0, digits = 2),
-                      round(mean1-mean0, digits = 2),
-                      round(t_stat, digits = 2),
-                      round(p_values, digits = 3)) %>% 
-  as.data.frame() %>% 
-  dplyr::select(-variables)
+year1 <- year[year>=1945]
 
-rownames(balance_test_bf)[1] <- "Terrain Rugedness Index"
-rownames(balance_test_bf)[2] <- "Average slope"
-rownames(balance_test_bf)[3] <- "Annual Mean Temperature"
-rownames(balance_test_bf)[4] <- "Mean Diurnal Range"
-rownames(balance_test_bf)[5] <- "Isothermality*100"
-rownames(balance_test_bf)[6] <- "Temperature Seasonality"
-rownames(balance_test_bf)[7] <- "Max Temperature of Warmest Month"
-rownames(balance_test_bf)[8] <- "Min Temperature of Coldest Month"
-rownames(balance_test_bf)[9] <- "Temperature Annual Range"
-rownames(balance_test_bf)[10] <- "Mean Temperature of Wettest Quarter"
-rownames(balance_test_bf)[11] <- "Mean Temperature of Driest Quarter"
-rownames(balance_test_bf)[12] <- "Mean Temperature of Warmest Quarter"
-rownames(balance_test_bf)[13] <- "Mean Temperature of Coldest Quarter"
-rownames(balance_test_bf)[14] <- "Annual Precipitation"
-rownames(balance_test_bf)[15] <- "Precipitation of Wettest Month"
-rownames(balance_test_bf)[16] <- "Precipitation of Driest Month"
-rownames(balance_test_bf)[17] <- "Precipitation Seasonality"
-rownames(balance_test_bf)[18] <- "Precipitation of Wettest Quarter"
-rownames(balance_test_bf)[19] <- "Precipitation of Driest Quarter"
-rownames(balance_test_bf)[20] <- "Precipitation of Warmest Quarter"
-
-colnames(balance_test_bf)[1] <- "Mean 1"
-colnames(balance_test_bf)[2] <- "Mean 0"
-colnames(balance_test_bf)[3] <- "Diff."
-colnames(balance_test_bf)[4] <- "t-stat."
-colnames(balance_test_bf)[5] <- "p-values"
+# areas more or less suitable would have evolved in the same way 
+# were it not for the port construction
 
 
-# Writing out the table
-balance_test_table_bf <- xtable(balance_test_bf, 
-                             include.rownames=TRUE, 
-                             latex.environments = "left")
 
-comment          <- list()
-comment$pos      <- list()
-comment$pos[[1]] <- c(nrow(balance_test_table_bf))
-comment$command  <- c(paste("\\hline \n",  
-                            "\\multicolumn{6}{c}{\\parbox{8.7cm}{Note: your footnote, caption or whatever. your footnote, caption or whatever.your footnote, caption or whatever.}}  \n",
-                            sep = ""))
 
-print(xtable(balance_test_table_bf,
-             align="lrrrrr"),
-      add.to.row = comment,
-      hline.after = c(-1, 0), size="\\tiny")  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
