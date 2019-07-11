@@ -4,27 +4,6 @@
 
 ## Precipitation and climate variables
 
-# BIO1  = Annual Mean Temperature 
-# BIO2  = Mean Diurnal Range (Mean of monthly (max temp - min temp))
-# BIO3  = Isothermality (BIO2/BIO7) (* 100)
-# BIO4  = Temperature Seasonality (standard deviation *100)
-# BIO5  = Max Temperature of Warmest Month
-# BIO6  = Min Temperature of Coldest Month
-# BIO7  = Temperature Annual Range (BIO5-BIO6)
-# BIO8  = Mean Temperature of Wettest Quarter
-# BIO9  = Mean Temperature of Driest Quarter
-# BIO10 = Mean Temperature of Warmest Quarter
-# BIO11 = Mean Temperature of Coldest Quarter
-# BIO12 = Annual Precipitation
-# BIO13 = Precipitation of Wettest Month
-# BIO14 = Precipitation of Driest Month
-# BIO15 = Precipitation Seasonality (Coefficient of Variation)
-# BIO16 = Precipitation of Wettest Quarter
-# BIO17 = Precipitation of Driest Quarter
-# BIO18 = Precipitation of Warmest Quarter
-# BIO19 = Precipitation of Coldest Quarter
-# BIO20 = Precipitation of Coldest Quarter
- 
 bio = getData('worldclim', var='bio', res=2.5, lon=22.440823, lat=5.539446)
 
 for(i in 1:20) { 
@@ -36,12 +15,6 @@ for(i in 1:20) {
   print(i)
 }
  
-# locations of mineral depposits
-mines <- readOGR("data/mines/ofr20051294/ofr20051294.shp", 
-                 "ofr20051294")
-mines <- spTransform(mines, newcrs)
-
-
 # Coffee suitabilty 
 coffee <- raster("data/crops/coffee/res03_crav6190l_silr_cof.tif")
 coffee_projected <- projectRaster(coffee, 
@@ -66,8 +39,154 @@ sugarcane_projected <- projectRaster(sugarcane,
                                      crs = newcrs, 
                                      method = "bilinear")
 
+# locations of mineral depposits
+mines <- readOGR("data/mines/ofr20051294/ofr20051294.shp", 
+                 "ofr20051294")
+mines <- spTransform(mines, newcrs)
+
 # Elevation data
-elev <- raster("elev.grd")
+elev <- raster("data/prepared_rasters/elev.grd")
+
+
+## Extract information from a buffer around each port 
+a <- gBuffer(pports, width = 5, byid = T)
+
+
+
+# BIO1  = Annual Mean Temperature 
+b <- raster::extract(bio1, a)
+bio1_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                          na.rm = TRUE))
+
+# BIO2  = Mean Diurnal Range (Mean of monthly (max temp - min temp))
+b <- raster::extract(bio2, a)
+bio2_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+# BIO3  = Isothermality (BIO2/BIO7) (* 100)
+b <- raster::extract(bio3, a)
+bio3_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+# BIO4  = Temperature Seasonality (standard deviation *100)
+b <- raster::extract(bio4, a)
+bio4_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+# BIO5  = Max Temperature of Warmest Month
+b <- raster::extract(bio5, a)
+bio5_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+# BIO6  = Min Temperature of Coldest Month
+b <- raster::extract(bio6, a)
+bio6_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+# BIO7  = Temperature Annual Range (BIO5-BIO6)
+b <- raster::extract(bio7, a)
+bio7_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+# BIO8  = Mean Temperature of Wettest Quarter
+b <- raster::extract(bio8, a)
+bio8_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+# BIO9  = Mean Temperature of Driest Quarter
+b <- raster::extract(bio9, a)
+bio9_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+# BIO10 = Mean Temperature of Warmest Quarter
+b <- raster::extract(bio10, a)
+bio10_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+# BIO11 = Mean Temperature of Coldest Quarter
+b <- raster::extract(bio11, a)
+bio11_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+# BIO12 = Annual Precipitation
+b <- raster::extract(bio12, a)
+bio12_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+# BIO13 = Precipitation of Wettest Month
+b <- raster::extract(bio13, a)
+bio13_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+
+# BIO14 = Precipitation of Driest Month
+b <- raster::extract(bio14, a)
+bio14_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+# BIO15 = Precipitation Seasonality (Coefficient of Variation)
+b <- raster::extract(bio15, a)
+bio15_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+# BIO16 = Precipitation of Wettest Quarter
+b <- raster::extract(bio16, a)
+bio16_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+# BIO17 = Precipitation of Driest Quarter
+b <- raster::extract(bio187, a)
+bio187_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+# BIO18 = Precipitation of Warmest Quarter
+b <- raster::extract(bio18, a)
+bio18_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+# BIO19 = Precipitation of Coldest Quarter
+b <- raster::extract(bio19, a)
+bio19_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+# BIO20 = Precipitation of Coldest Quarter
+b <- raster::extract(bio20, a)
+bio20_mean <- sapply(1:length(b), 
+                    function(x) min(b[[x]],
+                                    na.rm = TRUE))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
