@@ -243,7 +243,8 @@ prediction <- predict(fit,
                       s = lambda.min)
 sample_df$prediction <- prediction 
 sample_df <- sample_df[order(-prediction),] 
-sample_df1 <- sample_df[1:93,]
+# sample_df1 <- sample_df[1:93,]
+sample_df1 <- sample_df
 
 
 ## Matching with the spatial data 406
@@ -253,35 +254,8 @@ predicted_ports <- SpatialPolygonsDataFrame(predicted_ports,
                                             sample_df1, 
                                             match.ID = TRUE)
 # predicted_ports <- predicted_ports[]
+predicted_ports@data$prediction <- as.numeric(predicted_ports@data$prediction)
 
 
-
-
-
-# # load("/Users/sebastianellingsen/Dropbox/ports_ml/africa.Rda")
-# 
-# # Adding distance of the ports and prediceted port
-# distance_pport <- c()
-# pr_port <- c()
-# distance_port_locations <- c()
-# k <- 1
-# 
-# for (i in south_america@data$ID){
-#   cell <- south_america[south_america@data$ID==i,]
-#   
-#   distance_pport[k] <- gDistance(predicted_ports, cell)
-#   distance_port_locations[k] <- gDistance(ports, cell)
-#   
-#   ## Accessing port probability
-#   pr_port[k] <- ifelse(!is.na(over(cell,all_cells)$pr_port), 
-#                       over(cell,all_cells)$pr_port, 1)
-#   
-#   k <- k+1
-#   print(k/length(row.names(south_america@data)))
-# }
-# 
-# south_america@data$dis_pport <- distance_pport
-# south_america@data$dis_port <- distance_port_locations
-# south_america@data$pr_port <- pr_port-1
 
 
