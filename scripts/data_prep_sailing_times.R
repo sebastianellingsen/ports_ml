@@ -33,29 +33,59 @@ wind_series_mean_layer@layers[[2]] <- wind_series_mean_layer_masked
 Conductance <- flow.dispersion(wind_series_mean_layer, 
                                output="transitionLayer")
 
+
+Alicante  <- c(-0.48149, 38.34517)
+Barcelona <- c(2.15899, 41.38879)
+A_Coruña  <- c(-8.411540, 43.362343)
+
 ## Port locations
-loc <- matrix(c(-6.29465,   -82.366592,  -96.134224, 
-                -75.51444,  -77.042793,  -79.516670, 
-                -99.912437, -43.182365,  -56.164532,
-                -58.381592,  36.52978,    23.113592, 
-                 19.173773,  10.39972,   -12.046374, 
-                 8.983333,   16.848824,  -22.970722, 
-                -34.901112, -34.603722), 
-              10, 2)
+loc <- matrix(c(-6.29465,    -0.48149,      2.15899, 
+                -8.411540,   -82.366592,  -96.134224, 
+                -75.51444,   -77.042793,  -79.516670, 
+                -99.912437,  -43.182365,  -56.164532, 
+                -58.381592,   36.52978,    38.34517,   
+                 41.38879,    43.362343,   23.113592,  
+                 19.173773,   10.39972,   -12.046374,   
+                  8.983333,   16.848824,  -22.970722, 
+                -34.901112,  -34.603722), 
+              13, 2)
 
 colnames(loc) <- c("lon", "lat")
-rownames(loc) <- c("Cadiz", "Havana", "Veracruz", 
+rownames(loc) <- c("Cadiz", "Alicante", "Barcelona", 
+                   "A_Coruña", "Havana", "Veracruz", 
                    "Cartagena", "Lima", "Panama", 
                    "Acapulco", "Rio_De_Janeiro", 
                    "Montevideo", "Buenos_Aires")
 
-shortest_path <- lapply(2:10, 
-                        function(x) shortestPath(Conductance, 
-                                                 loc[1,], 
-                                                 loc[x,],
-                                                 output = "SpatialLines"))
-cumul_cost    <- lapply(2:10, 
-                        function(x) costDistance(Conductance, loc[1,], loc[x,]))
+
+least_cost_path <-  function(x, y){
+  
+  path <- shortestPath(Conductance, 
+                       loc[x,], 
+                       loc[y,],
+                       output = "SpatialLines")
+  
+  cost <- costDistance(Conductance, 
+                       loc[x,], 
+                       loc[y,])
+  return(list(path, cost))
+}
+
+## Costs and paths from Spanish ports
+# From Cadiz 
+shortest_path_coruna <- lapply(5:13, 
+                               function(x) least_cost_path(1, x))
+# From Alicante 
+shortest_path_coruna <- lapply(5:13, 
+                               function(x) least_cost_path(2, x))
+# From Barcelona 
+shortest_path_coruna <- lapply(5:13, 
+                               function(x) least_cost_path(3, x))
+# From A Coruña 
+shortest_path_coruna <- lapply(5:13, 
+                               function(x) least_cost_path(4, x))
+
+
 
 
 
