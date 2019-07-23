@@ -10,7 +10,7 @@ library(shape)
 ## Preparing and downloading data 
 dt <- seq(ymd_hms(paste(2011, 9, 3, 00, 00, 00, sep="-")),
           ymd_hms(paste(2017, 9, 11, 21, 00, 00, sep="-")),
-          by="10 days")
+          by="300 days")
 
 wind_series <- wind.dl_2(dt, -110, 20, -90, 80)
 wind_series_layer <- wind2raster(wind_series)
@@ -20,11 +20,14 @@ wind_series_mean <- wind.mean(wind_series)
 wind_series_mean_layer <- wind2raster(wind_series_mean)
 
 # Setting overland wind speed to 0
-wind_series_mean_layer_masked <- mask(wind_series_mean_layer@layers[[2]], 
+wind_series_mean_layer_masked <- raster::mask(wind_series_mean_layer@layers[[2]], 
                                       countries110, 
-                                      inverse=T,
+                                      inverse=TRUE,
                                       updateNA=F,
                                       updatevalue=0)
+
+# Replacing cell at Gibraltar
+wind_series_mean_layer_masked[23178] <- 6
 
 # Replacing the windspeeds overland
 wind_series_mean_layer@layers[[2]] <- wind_series_mean_layer_masked
@@ -34,7 +37,6 @@ Conductance <- flow.dispersion(wind_series_mean_layer,
                                output="transitionLayer", 
                                type="active")
 
-
 # Spain
 Cadiz     <- c(-6.29465, 36.52978)
 Alicante  <- c(-0.48149, 38.04517)
@@ -42,7 +44,7 @@ Barcelona <- c(2.26899, 41.38879)
 A_Coruña  <- c(-8.411540, 43.362343)
 
 # New world
-Havana         <- c(-82.366592, 23.313592)
+Havana         <- c(-82.366592, 23.513592)
 Veracruz       <- c(-96.134224, 19.173773)
 Cartagena      <- c(-75.51444, 10.39972)
 Lima           <- c(-77.042793, -12.846374)
@@ -72,45 +74,27 @@ rownames(loc) <- c("Cadiz", "Alicante", "Barcelona",
                    "Acapulco", "Rio_De_Janeiro", 
                    "Montevideo", "Buenos_Aires")
 
-
-least_cost_path <-  function(x, y){
+least_cost_path <-  function(from, to){
   
   path <- shortestPath(Conductance, 
-                       loc[x,], 
-                       loc[y,],
+                       loc[from,], 
+                       loc[to,],
                        output = "SpatialLines")
   
   cost <- costDistance(Conductance, 
-                       loc[x,], 
-                       loc[y,])
-  return(list(path, cost))
+                       loc[from,], 
+                       loc[to,])
+  return(list(path))
 }
 
+## Costs and paths from Cadiz
+shortest_path_from_cadiz <- lapply(5:13, 
+                               function(x) least_cost_path(1, x)) %>% 
+  unlist() %>% do.call(bind, .) 
 
-## Costs and paths from Spanish ports
-# From Cadiz 
-shortest_path_coruna <- lapply(5:13, 
-                               function(x) least_cost_path(1, x))
-
-
-## Costs and paths from Havana
-shortest_path_havana <- lapply(1:4, 
-                               function(x) least_cost_path(x, 5))
-
-path <- shortestPath(Conductance,
-                     loc[5,],
-                     loc[4,], 
-                     output = "SpatialLines")
-
-
-
-# pass pa at ports er pa raster, gjelder lima, funker ofte bare en vei ellers
-# 
-# "Veracruz", 
-#                    "Cartagena", "Lima", "Panama", 
-# "Acapulco", "Rio_De_Janeiro", 
-# "Montevideo", "Buenos_Aires"
-# 
-
+## Shortest path to cadiz
+shortest_path_to_cadiz <- lapply(5:13, 
+                               function(x) least_cost_path(x, 1)) %>% 
+  unlist() %>% do.call(bind, .) 
 
 
