@@ -2,13 +2,15 @@
 
 ## loading data
 
+crs_south_america <- "+proj=moll +datum=WGS84 +units=km +pm=bogota"
+
 # Weather and climate data
 bio = getData('worldclim', var='bio', res=2.5, lon=22.440823, lat=5.539446)
 
 for(i in 1:20) { 
   
   k <- projectRaster(aggregate(raster(bio, layer=i), 2), 
-                     crs = newcrs, 
+                     crs = crs_south_america, 
                      method = "bilinear")
   assign(paste("bio", i, sep = "") , k)
   print(i)
@@ -23,64 +25,53 @@ for(i in crop) {
   path2 <- paste(paste("res03_crav6190l_silr", i2, sep="_"), ".tif", sep="")
   
   assign(i, projectRaster(raster(paste(path1, path2, sep="/")), 
-                          crs = newcrs, 
+                          crs = crs_south_america, 
                           method = "bilinear"))
 }
 # Other raster files
 # Sugarcane  
 sugarcane <- raster("data/crops/sugarcane/res03_crav6190h_sihr_suc.tif")
 sugarcane <- projectRaster(sugarcane, 
-                           crs = newcrs, 
+                           crs = crs_south_america, 
                            method = "bilinear")
 
 # locations of mineral depposits
 mines <- readOGR("data/mines/ofr20051294/ofr20051294.shp", 
                  "ofr20051294")
-mines <- spTransform(mines, newcrs)
+mines <- spTransform(mines, crs_south_america)
 
 # Elevation data
 elev <- raster("data/prepared_rasters/elev.grd")
 
+# reproject elevation and find the slope and tr index, add luminosity etc. 
 
+rasters  <- c(bio1,    bio2,   bio3,  bio4,  bio5,  bio6,   bio7,  
+              bio8,    bio9,   bio10, bio11, bio12, bio13, bio14,  
+              bio15,   bio16,  bio17, bio18, bio19, bio20, coffee, 
+              tobacco, cotton, sugarcane)
 
-## Extract information from a buffer around each port
-a                      <- gBuffer(pports, width = 5, byid = T)
-rasters                <- c(bio1, bio2, bio3, bio4, bio5, bio6, bio7, bio8, 
-                            bio9, bio10, bio11, bio12, bio13, bio14, bio15, 
-                            bio16, bio17, bio18, bio19, bio20, coffee, tobacco, 
-                            cotton, sugarcane)
-
+# Function to extract the raster values for each grid cell
 extracting_raster_info <- function(x){
   
-  b <- raster::extract(x, a)
-  return(sapply(1:length(b), 
-                function(x) min(b[[x]],
-                                na.rm = TRUE)))
+  cell             <- south_america[south_america@data$ID==x,]
+  cell_values      <- sapply(rasters, function(raster) raster::extract(raster, cell))
+  return(sapply(cell_values, function(x) mean(x, na.rm=TRUE)))
+
 }
-output <- lapply(rasters, function(x) extracting_raster_info(x))
 
-names(output) <- c("bio1", "bio2", "bio3", "bio4", "bio5", "bio6", "bio7", "bio8", 
-                   "bio9", "bio10", "bio11", "bio12", "bio13", "bio14", "bio15", 
-                   "bio16", "bio17", "bio18", "bio19", "bio20", "coffee", "tobaco", 
-                   "cotton", "sugar")
+# Adding the information from the raster to dataframe
+tic()
+values         <- lapply(south_america@data$ID, function(x) extracting_raster_info(x))
+controls       <- as.data.frame(do.call(rbind, values))
+names(controls) <- c("bio1",  "bio2",  "bio3",    "bio4",   "bio5",   "bio6", 
+                     "bio7",  "bio8",  "bio9",    "bio10",  "bio11",  "bio12", 
+                     "bio13", "bio14", "bio15",   "bio16",  "bio17",  "bio18", 
+                     "bio19", "bio20", "coffee",  "tobaco", "cotton", "sugar")
 
-controls <- output %>% as.tibble() %>% unnest()
+toc()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# Adding the dataframe to the grid 
+south_america@data <- cbind(south_america@data, controls)
 
 
 
