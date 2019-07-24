@@ -81,9 +81,6 @@ least_cost_path <-  function(from, to){
                        loc[to,],
                        output = "SpatialLines")
   
-  cost <- costDistance(Conductance, 
-                       loc[from,], 
-                       loc[to,])
   return(list(path))
 }
 
@@ -96,5 +93,41 @@ shortest_path_from_cadiz <- lapply(5:13,
 shortest_path_to_cadiz <- lapply(5:13, 
                                function(x) least_cost_path(x, 1)) %>% 
   unlist() %>% do.call(bind, .) 
+
+
+# Generating a dataframe of sailing times
+
+least_cost <-  function(from, to){
+  
+  cost <- costDistance(Conductance, 
+                       loc[from,], 
+                       loc[to,])
+  return(list(cost))
+}
+
+least_cost_from_cadiz <- lapply(5:13, 
+                                   function(x) least_cost(1, x)) %>% 
+  unlist() 
+
+## Shortest path to cadiz
+least_cost_to_cadiz <- lapply(5:13, 
+                                 function(x) least_cost(x, 1)) %>% 
+  unlist()  
+
+least_costs <- c(least_cost_from_cadiz, least_cost_to_cadiz)
+
+VoyageFrom <- c(rep("Cadiz", 9), rownames(loc)[5:13])
+VoyageTo <- c(rownames(loc)[5:13], rep("Cadiz", 9))
+
+least_costs <- cbind(VoyageFrom, VoyageTo, least_costs) %>% as.data.frame()
+
+
+
+
+
+
+
+
+
 
 
