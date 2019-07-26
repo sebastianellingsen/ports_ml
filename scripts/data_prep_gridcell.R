@@ -41,14 +41,43 @@ mines <- readOGR("data/mines/ofr20051294/ofr20051294.shp",
 mines <- spTransform(mines, crs_south_america)
 
 # Elevation data
-elev <- raster("data/prepared_rasters/elev.grd")
+elev               <- raster("data/elevation/ETOPO1_Ice_g_geotiff.tif")
+crs(elev)          <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84"
+elev_south_america <- crop(elev, study_area_unprojected)
+elev               <- aggregate(elev_south_america, 
+                                fact = 4, 
+                                fun = mean)
+elev               <- projectRaster(elev, 
+                                    crs = crs_south_america, 
+                                    method = "bilinear")
+
+# Terrain ruggedness index from Riley et al (1999)
+tri <- tri(elev, s = 3, exact = TRUE)
+
+# Slope
+slope <- terrain(elev, 
+                 opt='slope', 
+                 unit='radians', 
+                 neighbors=8)
+
+# Night lights
+night_lights               <- raster("data/nightlights/F182010.v4/F182010.v4d_web.stable_lights.avg_vis.tif")
+night_lights_south_america <- crop(night_lights, 
+                                   study_area_unprojected)
+night_lights               <- aggregate(night_lights_south_america, 
+                                        fact = 6, 
+                                        fun = mean)
+night_lights               <- projectRaster(night_lights, 
+                                            crs = crs_south_america, 
+                                            method = "bilinear")
 
 # reproject elevation and find the slope and tr index, add luminosity etc. 
 
-rasters  <- c(bio1,    bio2,   bio3,  bio4,  bio5,  bio6,   bio7,  
-              bio8,    bio9,   bio10, bio11, bio12, bio13, bio14,  
-              bio15,   bio16,  bio17, bio18, bio19, bio20, coffee, 
-              tobacco, cotton, sugarcane)
+rasters  <- c(bio1,    bio2,   bio3,      bio4,  bio5,  bio6,   bio7,  
+              bio8,    bio9,   bio10,     bio11, bio12, bio13,  bio14,  
+              bio15,   bio16,  bio17,     bio18, bio19, bio20,  coffee, 
+              tobacco, cotton, sugarcane, night_lights, elev,   tri,
+              slope)
 
 # Function to extract the raster values for each grid cell
 extracting_raster_info <- function(x){
@@ -64,10 +93,11 @@ extracting_raster_info <- function(x){
 values          <- lapply(south_america@data$ID, 
                          function(x) extracting_raster_info(x))
 controls        <- as.data.frame(do.call(rbind, values))
-names(controls) <- c("bio1",  "bio2",  "bio3",    "bio4",   "bio5",   "bio6", 
-                     "bio7",  "bio8",  "bio9",    "bio10",  "bio11",  "bio12", 
-                     "bio13", "bio14", "bio15",   "bio16",  "bio17",  "bio18", 
-                     "bio19", "bio20", "coffee",  "tobaco", "cotton", "sugar")
+names(controls) <- c("bio1",       "bio2",  "bio3",    "bio4",   "bio5",   "bio6", 
+                     "bio7",       "bio8",  "bio9",    "bio10",  "bio11",  "bio12", 
+                     "bio13",      "bio14", "bio15",   "bio16",  "bio17",  "bio18", 
+                     "bio19",      "bio20", "coffee",  "tobaco", "cotton", "sugar",
+                     "night_lights")
 
 # Adding the dataframe to the grid 
 south_america@data <- cbind(south_america@data, controls)
@@ -116,7 +146,7 @@ imputed_list <- lapply(missing_rows,
                        function(x) neighbors_imputation(x))
 
 # Adding imputed values to the missing cells 
-for(i in 1:114){
+for(i in 1:length(imputed_list)){
   missing_rows_number <- imputed_list[[i]][1]
   missing_variable <- imputed_list[[i]][,2]
   imputed_value <- imputed_list[[i]][,3]
@@ -126,10 +156,5 @@ for(i in 1:114){
 
 
 ## Adding dummy variable for coastal areas
-
-
-
-
-
-
-
+  
+  
