@@ -93,11 +93,11 @@ extracting_raster_info <- function(x){
 values          <- lapply(south_america@data$ID, 
                          function(x) extracting_raster_info(x))
 controls        <- as.data.frame(do.call(rbind, values))
-names(controls) <- c("bio1",       "bio2",  "bio3",    "bio4",   "bio5",   "bio6", 
-                     "bio7",       "bio8",  "bio9",    "bio10",  "bio11",  "bio12", 
-                     "bio13",      "bio14", "bio15",   "bio16",  "bio17",  "bio18", 
-                     "bio19",      "bio20", "coffee",  "tobaco", "cotton", "sugar",
-                     "night_lights")
+names(controls) <- c("bio1",    "bio2",   "bio3",    "bio4",   "bio5",   
+                     "bio6",    "bio7",   "bio8",    "bio9",   "bio10",  
+                     "bio11",   "bio12",  "bio13",   "bio14",  "bio15",   
+                     "bio16",   "bio17",  "bio18",   "bio19",  "bio20", 
+                     "coffee",  "tobaco", "cotton",  "sugar",  "night_lights")
 
 # Adding the dataframe to the grid 
 south_america@data <- cbind(south_america@data, controls)
@@ -173,6 +173,51 @@ coast_ds <- cbind("ID"=colnames(gd), "distance"=gd[1:dim(gd)[2]]) %>%
             as.data.frame(stringsAsFactors = FALSE) %>% 
             mutate(distance=as.numeric(distance)) 
 
+# Add distances to the grid cell data  
 south_america@data$coast_ds <- coast_ds$distance
+
+
+## Adding longitude and latitude 
+south_america@data$long <- coordinates(south_america)[,1]
+south_america@data$lat <- coordinates(south_america)[,2]
+
+
+## Adding ports and predicted ports 
+pports <- readOGR("data/output/predicted_ports.shp", 
+                  "predicted_ports")
+
+
+## Ports 
+ports <- readOGR("data/WPI_Shapefiles/WPI_Shapefile2010", "WPI")
+ports <- ports[!is.na(ports$HARBORTYPE),]
+
+# Coastal natural 
+ports_cn <- ports[ports$HARBORTYPE=="CN",]
+
+# Projection centered on south america 
+ports    <- spTransform(ports, crs_south_america)
+ports_cn <- spTransform(ports_cn, crs_south_america)
+
+pports <- readOGR("output/predicted_ports.shp", "predicted_ports")
+pports <- spTransform(pports, crs_south_america)
+pports <- pports[pports@data$prdct>=0.5, ]
+
+
+# Adding distance of the ports and predicted port
+distance_to_ports <- function(x){
+  cell <- south_america[x,]
+  return(gDistance(ports_cn, cell))
+}
+
+south_america@data$dis_port <- sapply(1:length(south_america@data$ID), 
+                                      function(x) distance_to_ports(x)) 
+
+distance_to_pports <- function(x){
+  cell <- south_america[x,]
+  return(gDistance(pports, cell))
+}
+
+south_america@data$dis_pport <- sapply(1:length(south_america@data$ID), 
+                                       function(x) distance_to_pports(x)) 
 
 
