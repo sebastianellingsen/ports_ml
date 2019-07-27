@@ -154,7 +154,25 @@ for(i in 1:length(imputed_list)){
   south_america@data[missing_rows_number, missing_variable] <- imputed_value
 }
 
+## Distance to the coastline 
+coastline110 <- ne_download(scale = 50, 
+                            type = 'coastline', 
+                            category = 'physical')
 
-## Adding dummy variable for coastal areas
-  
-  
+study_area_unprojected_buffer <- gBuffer(study_area_unprojected, 
+                                         width = 8)
+study_area_coastline          <-gIntersection(coastline110, 
+                                              study_area_unprojected_buffer)
+study_area_coastline          <- spTransform(study_area_coastline, 
+                                             crs_south_america)
+gd <-  gDistance(south_america,
+                 study_area_coastline,
+                 byid=TRUE)
+
+coast_ds <- cbind("ID"=colnames(gd), "distance"=gd[1:dim(gd)[2]]) %>% 
+            as.data.frame(stringsAsFactors = FALSE) %>% 
+            mutate(distance=as.numeric(distance)) 
+
+south_america@data$coast_ds <- coast_ds$distance
+
+
