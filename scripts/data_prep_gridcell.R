@@ -135,7 +135,7 @@ neighbors_imputation <- function(x){
   # Imputing the missing values
   missing_rows_number <- which(south_america@data$ID==x)
   missing_variable    <- which(is.na(cell@data)) 
-  data_for_imputation <- neighbors@data[,missing_variable] %>% as.data.frame()
+  data_for_imputation <- neighbors@data[ ,missing_variable] %>% as.data.frame()
   imputed_value       <- apply(data_for_imputation, 2, mean, na.rm=TRUE) 
   
   return(cbind(missing_rows_number, missing_variable, imputed_value))
@@ -219,5 +219,6 @@ distance_to_pports <- function(x){
 
 south_america@data$dis_pport <- sapply(1:length(south_america@data$ID), 
                                        function(x) distance_to_pports(x)) 
+
 
 
