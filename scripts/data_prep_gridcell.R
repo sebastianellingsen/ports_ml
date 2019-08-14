@@ -43,7 +43,9 @@ mines <- spTransform(mines, crs_south_america)
 # Elevation data
 elev               <- raster("data/elevation/ETOPO1_Ice_g_geotiff.tif")
 crs(elev)          <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84"
-elev_south_america <- crop(elev, study_area_unprojected)
+south_america_unprojected <- spTransform(south_america, 
+                                         "+proj=longlat +datum=WGS84 +ellps=WGS84")
+elev_south_america <- crop(elev, south_america_unprojected)
 elev               <- aggregate(elev_south_america, 
                                 fact = 4, 
                                 fun = mean)
@@ -71,8 +73,6 @@ night_lights               <- projectRaster(night_lights,
                                             crs = crs_south_america, 
                                             method = "bilinear")
 
-# reproject elevation and find the slope and tr index, add luminosity etc. 
-
 rasters  <- c(bio1,    bio2,   bio3,      bio4,  bio5,  bio6,   bio7,  
               bio8,    bio9,   bio10,     bio11, bio12, bio13,  bio14,  
               bio15,   bio16,  bio17,     bio18, bio19, bio20,  coffee, 
@@ -97,7 +97,8 @@ names(controls) <- c("bio1",    "bio2",   "bio3",    "bio4",   "bio5",
                      "bio6",    "bio7",   "bio8",    "bio9",   "bio10",  
                      "bio11",   "bio12",  "bio13",   "bio14",  "bio15",   
                      "bio16",   "bio17",  "bio18",   "bio19",  "bio20", 
-                     "coffee",  "tobaco", "cotton",  "sugar",  "night_lights")
+                     "coffee",  "tobaco", "cotton",  "sugar",  "night_lights",
+                     "elev",    "tri",    "slope")
 
 # Adding the dataframe to the grid 
 south_america@data <- cbind(south_america@data, controls)
