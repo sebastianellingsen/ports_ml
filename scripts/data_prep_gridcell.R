@@ -161,7 +161,7 @@ coastline110 <- ne_download(scale = 50,
                             category = 'physical')
 
 study_area_unprojected_buffer <- gBuffer(study_area_unprojected, 
-                                         width = 8)
+                                         width = 30)
 study_area_coastline          <-gIntersection(coastline110, 
                                               study_area_unprojected_buffer)
 study_area_coastline          <- spTransform(study_area_coastline, 
@@ -201,8 +201,8 @@ ports_cn <- spTransform(ports_cn, crs_south_america)
 
 pports <- readOGR("output/predicted_ports.shp", "predicted_ports")
 pports <- spTransform(pports, crs_south_america)
-pports <- pports[pports@data$prdct>=0.5, ]
 
+pports <- pports[pports@data$prdct>=0.5, ]
 
 # Adding distance of the ports and predicted port
 distance_to_ports <- function(x){
