@@ -222,4 +222,9 @@ south_america@data$dis_pport <- sapply(1:length(south_america@data$ID),
                                        function(x) distance_to_pports(x)) 
 
 
+# legg til port probability ogsa 
+
+
+
+
 
