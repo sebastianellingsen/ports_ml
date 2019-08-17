@@ -15,19 +15,40 @@ cultural  <- colnames(balance_data)[41]
 
 regression_test <- function(variables){
   
-  tests <- sapply(variables, 
-                  function(i) felm(data=balance_data,  
+  regression <- lapply(variables, 
+                  function(i) (felm(data=balance_data,  
                                    balance_data[,i] ~ pport*slng_tm|
                                      states|
                                      0|
-                                     states)[["cpval"]][["pport:slng_tm"]])
-  return(tests)
+                                     states)%>% tidy())[3,])  %>%
+    bind() %>%
+    mutate(term = variables)
+  
+  return(regression)
 }
 
-regression_test(climate)
-regression_test(geography)
-regression_test(crops)
-regression_test(cultural)
+regressions <- rbind(regression_test(climate),
+                     regression_test(geography),
+                     regression_test(crops)) %>% as.dataframe()
+
+
+
+
+
+
+
+
+(felm(data=balance_data,  
+     bio1 ~ pport*slng_tm|
+       states|
+       0|
+       states)%>% tidy())[3,]
+
+
+
+
+
+
 
 
 
