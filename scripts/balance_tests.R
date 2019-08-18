@@ -9,7 +9,7 @@ balance_data <- south_america@data %>% filter(coast_ds==0) %>%
 climate   <- colnames(balance_data)[3:17]
 geography <- c(colnames(balance_data)[28:30], colnames(balance_data)[32:33])
 crops     <- colnames(balance_data)[23:26]
-cultural  <- colnames(balance_data)[41]
+cultural  <- colnames(balance_data)[43:44]
 
 
 
@@ -29,23 +29,8 @@ regression_test <- function(variables){
 
 regressions <- rbind(regression_test(climate),
                      regression_test(geography),
-                     regression_test(crops)) %>% as.dataframe()
-
-
-
-
-
-
-
-
-(felm(data=balance_data,  
-     bio1 ~ pport*slng_tm|
-       states|
-       0|
-       states)%>% tidy())[3,]
-
-
-
+                     regression_test(crops),
+                     regression_test(cultural)) %>% data.frame()
 
 
 
