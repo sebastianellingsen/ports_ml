@@ -200,9 +200,17 @@ ports    <- spTransform(ports, crs_south_america)
 ports_cn <- spTransform(ports_cn, crs_south_america)
 
 pports <- readOGR("output/predicted_ports.shp", "predicted_ports")
-pports <- spTransform(pports, crs_south_america)
+pports <- spTransform(pports, crs(south_america))
 
-pports <- pports[pports@data$prdct>=0.5, ]
+
+port_probability <- function(x){
+  cell <- south_america[south_america@data$ID==x,]
+  return(over(cell, pports)$prdct)
+}
+
+south_america@data$port_p <- sapply(south_america@data$ID, 
+                                    function(x) port_probability(x))
+
 
 # Adding distance of the ports and predicted port
 distance_to_ports <- function(x){
@@ -221,10 +229,41 @@ distance_to_pports <- function(x){
 south_america@data$dis_pport <- sapply(1:length(south_america@data$ID), 
                                        function(x) distance_to_pports(x)) 
 
+## Aggregating other data by grid-cell
+## Population density 
+source("scripts/merge_region_data.R")
+south_america@data$popcold <- sapply(south_america@data$ID, 
+                                     function(x) 
+                                       over(south_america[south_america@data$ID==x,], 
+                                            states_sp)$popcold)
 
-# legg til port probability ogsa 
+## Cities from Chandler 
+source("scripts/data_prep_cities.R")
+south_america@data$pr_cities <- sapply(south_america@data$ID, 
+                                       function(x) 
+                                         ifelse(!is.na(over(south_america[south_america@data$ID==x,], 
+                                                         cities_sa_pre_hispanic)$City),1,0))
+
+## Archeological sites
+source("scripts/data_prep_archeological_sites.R")
+south_america@data$sites <- sapply(south_america@data$ID, 
+                                   function(x) 
+                                     ifelse(!is.na(over(south_america[south_america@data$ID==x,], 
+                                                        arch_sites)), 1, 0))
 
 
+# Reliance on fishing 
+source("scripts/data_prep_ethnographic.R")
+south_america@data$fish <- sapply(south_america@data$ID, 
+                                  function(x) 
+                                    over(south_america[south_america@data$ID==x,], 
+                                         ethnographic)$v3)
 
+# Sailing times
+source("scripts/data_prep_sailing_times.R")
+south_america@data$least_costs <- sapply(1:length(south_america@data$ID), 
+                                         function(x) sailing_time(x)) 
+
+south_america@data$sailing_time <- predict(m1, south_america@data)
 
 
