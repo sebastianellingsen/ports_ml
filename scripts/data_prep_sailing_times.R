@@ -7,24 +7,32 @@ library(fields)
 library(lubridate)
 library(shape)
 
+south_america <- readOGR("../output/south_america_grid.shp", "south_america_grid")
+
 ## Preparing and downloading data 
-dt <- seq(ymd_hms(paste(2011, 9, 3, 00, 00, 00, sep="-")),
-          ymd_hms(paste(2017, 9, 11, 21, 00, 00, sep="-")),
+dt <- seq(ymd_hms(paste(2011, 9, 3,  00, 00, 00, sep = "-")),
+          ymd_hms(paste(2017, 9, 11, 21, 00, 00, sep = "-")),
           by="300 days")
 
-wind_series <- wind.dl_2(dt, -110, 20, -90, 80)
+wind_series <- wind.dl_2(dt, -140, 20, -90, 80)
 wind_series_layer <- wind2raster(wind_series)
 
 # Averaging over the period and making raster file
 wind_series_mean <- wind.mean(wind_series)
 wind_series_mean_layer <- wind2raster(wind_series_mean)
 
+countries110 <- ne_download(scale = 110, 
+                            type = 'countries', 
+                            category = 'cultural')
+
+countries110 <- spTransform(countries110, crs(wind_series_mean_layer))
+
 # Setting overland wind speed to 0
 wind_series_mean_layer_masked <- raster::mask(wind_series_mean_layer@layers[[2]], 
-                                      countries110, 
-                                      inverse=TRUE,
-                                      updateNA=F,
-                                      updatevalue=0)
+                                              countries110, 
+                                              inverse=TRUE,
+                                              updateNA=F,
+                                              updatevalue=0)
 
 # Replacing cell at Gibraltar
 wind_series_mean_layer_masked[23178] <- 6
@@ -90,9 +98,9 @@ shortest_path_from_cadiz <- lapply(5:13,
   unlist() %>% do.call(bind, .) 
 
 ## Shortest path to cadiz
-shortest_path_to_cadiz <- lapply(5:13, 
-                               function(x) least_cost_path(x, 1)) %>% 
-  unlist() %>% do.call(bind, .) 
+# shortest_path_to_cadiz <- lapply(5:13, 
+#                                function(x) least_cost_path(x, 1)) %>% 
+#   unlist() %>% do.call(bind, .) 
 
 
 # Generating a dataframe of sailing times
@@ -122,11 +130,15 @@ VoyageTo <- c(rownames(loc)[5:13], rep("Cadiz", 9))
 least_costs <- cbind(VoyageFrom, VoyageTo, least_costs) %>% as.data.frame()
 
 
-
-
-
-
-
+## Distance to coastal grid cells
+south_america_unprojected <- spTransform(south_america, 
+                                         "+proj=longlat +datum=WGS84 +ellps=WGS84")
+sailing_time <- function(x){
+  cell <- south_america_unprojected[x,]
+  return(ifelse(cell@data$coast_ds==0, costDistance(Conductance, 
+                                           loc[1,], 
+                                           coordinates(cell)), 0))
+}
 
 
 
