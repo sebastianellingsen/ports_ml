@@ -17,7 +17,7 @@ for(i in 1:20) {
 }
 
 # Crop suitability 
-crop <- c("coffee", "tobacco", "cotton") 
+crop <- c("banana", "coffee", "tobacco", "cotton", "wheat", "tea") 
 for(i in crop) { 
   
   i2 <- substr(i, 1, 3)
@@ -28,14 +28,28 @@ for(i in crop) {
                           crs = crs_south_america, 
                           method = "bilinear"))
 }
+
 # Other raster files
 # Sugarcane  
-sugarcane <- raster("data/crops/sugarcane/res03_crav6190h_sihr_suc.tif")
+sugarcane <- raster("data/crops/sugar_cane/res03_crav6190l_silr_suc.tif")
 sugarcane <- projectRaster(sugarcane, 
-                           crs = crs_south_america, 
+                           crs    = crs_south_america, 
                            method = "bilinear")
 
-# locations of mineral depposits
+# Cacao  
+cacao <- raster("data/crops/cacao/res03_crav6190l_silr_coc.tif")
+cacao <- projectRaster(cacao, 
+                       crs    = crs_south_america, 
+                       method = "bilinear")
+
+# Maize  
+maize <- raster("data/crops/maize/res03_crav6190l_silr_mze.tif")
+maize <- projectRaster(maize, 
+                       crs    = crs_south_america, 
+                       method = "bilinear")
+
+
+# locations of mineral deposits
 mines <- readOGR("data/mines/ofr20051294/ofr20051294.shp", 
                  "ofr20051294")
 mines <- spTransform(mines, crs_south_america)
@@ -73,11 +87,11 @@ night_lights               <- projectRaster(night_lights,
                                             crs = crs_south_america, 
                                             method = "bilinear")
 
-rasters  <- c(bio1,    bio2,   bio3,      bio4,  bio5,  bio6,   bio7,  
-              bio8,    bio9,   bio10,     bio11, bio12, bio13,  bio14,  
-              bio15,   bio16,  bio17,     bio18, bio19, bio20,  coffee, 
-              tobacco, cotton, sugarcane, night_lights, elev,   tri,
-              slope)
+rasters  <- c(bio1,    bio2,   bio3,  bio4,  bio5,  bio6,   bio7,  
+              bio8,    bio9,   bio10, bio11, bio12, bio13,  bio14,  
+              bio15,   bio16,  bio17, bio18, bio19, bio20,  night_lights, 
+              elev,    tri,    slope, banana,coffee,tobacco, 
+              cotton,  wheat,  tea,   sugarcane,    cacao,   maize)
 
 # Function to extract the raster values for each grid cell
 extracting_raster_info <- function(x){
@@ -93,12 +107,11 @@ extracting_raster_info <- function(x){
 values          <- lapply(south_america@data$ID, 
                          function(x) extracting_raster_info(x))
 controls        <- as.data.frame(do.call(rbind, values))
-names(controls) <- c("bio1",    "bio2",   "bio3",    "bio4",   "bio5",   
-                     "bio6",    "bio7",   "bio8",    "bio9",   "bio10",  
-                     "bio11",   "bio12",  "bio13",   "bio14",  "bio15",   
-                     "bio16",   "bio17",  "bio18",   "bio19",  "bio20", 
-                     "coffee",  "tobaco", "cotton",  "sugar",  "night_lights",
-                     "elev",    "tri",    "slope")
+names(controls) <- c("bio1",    "bio2",   "bio3",  "bio4",  "bio5",  "bio6",   "bio7",  
+                     "bio8",    "bio9",   "bio10", "bio11", "bio12", "bio13",  "bio14",  
+                     "bio15",   "bio16",  "bio17", "bio18", "bio19", "bio20",  "night_lights", 
+                     "elev",    "tri",    "slope", "banana","coffee","tobacco", 
+                     "cotton",  "wheat",  "tea",   "sugarcane",    "cacao",   "maize")
 
 # Adding the dataframe to the grid 
 south_america@data <- cbind(south_america@data, controls)
@@ -205,7 +218,9 @@ pports <- spTransform(pports, crs(south_america))
 
 port_probability <- function(x){
   cell <- south_america[south_america@data$ID==x,]
-  return(over(cell, pports)$prdct)
+  list <- over(cell, pports, returnList = TRUE)
+  return(mean(list[[1]][["prdct"]], na.rm=TRUE))
+  
 }
 
 south_america@data$port_p <- sapply(south_america@data$ID, 
