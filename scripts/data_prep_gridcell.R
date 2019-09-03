@@ -169,7 +169,7 @@ for(i in 1:length(imputed_list)){
 }
 
 ## Distance to the coastline 
-coastline110 <- ne_download(scale = 50, 
+coastline110 <- ne_download(scale = 110, 
                             type = 'coastline', 
                             category = 'physical')
 
@@ -195,10 +195,6 @@ south_america@data$coast_ds <- coast_ds$distance
 south_america@data$long <- coordinates(south_america)[,1]
 south_america@data$lat <- coordinates(south_america)[,2]
 
-
-## Adding ports and predicted ports 
-pports <- readOGR("data/output/predicted_ports.shp", 
-                  "predicted_ports")
 
 
 ## Ports 
@@ -276,9 +272,12 @@ south_america@data$fish <- sapply(south_america@data$ID,
 
 # Sailing times
 source("scripts/data_prep_sailing_times.R")
+source("data/cliwoc/data_prep_cliwoc.R")
+
 south_america@data$least_costs <- sapply(1:length(south_america@data$ID), 
                                          function(x) sailing_time(x)) 
 
-south_america@data$sailing_time <- predict(m1, south_america@data)
+south_america@data$sailing_time <- ifelse(south_america@data$least_costs>0, 
+                                          predict(m1, south_america@data), NA)
 
 
