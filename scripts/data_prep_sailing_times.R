@@ -7,7 +7,7 @@ library(fields)
 library(lubridate)
 library(shape)
 
-south_america <- readOGR("../output/south_america_grid.shp", "south_america_grid")
+# south_america <- readOGR("../output/south_america_grid.shp", "south_america_grid")
 
 ## Preparing and downloading data 
 dt <- seq(ymd_hms(paste(2011, 9, 3,  00, 00, 00, sep = "-")),
@@ -98,9 +98,9 @@ shortest_path_from_cadiz <- lapply(5:13,
   unlist() %>% do.call(bind, .) 
 
 ## Shortest path to cadiz
-# shortest_path_to_cadiz <- lapply(5:13, 
-#                                function(x) least_cost_path(x, 1)) %>% 
-#   unlist() %>% do.call(bind, .) 
+shortest_path_to_cadiz <- lapply(5:13,
+                               function(x) least_cost_path(x, 1)) %>%
+  unlist() %>% do.call(bind, .)
 
 
 # Generating a dataframe of sailing times
@@ -128,7 +128,6 @@ VoyageFrom <- c(rep("Cadiz", 9), rownames(loc)[5:13])
 VoyageTo <- c(rownames(loc)[5:13], rep("Cadiz", 9))
 
 least_costs <- cbind(VoyageFrom, VoyageTo, least_costs) %>% as.data.frame()
-
 
 ## Distance to coastal grid cells
 south_america_unprojected <- spTransform(south_america, 
