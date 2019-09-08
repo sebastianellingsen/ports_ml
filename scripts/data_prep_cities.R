@@ -161,4 +161,19 @@ sa_panel <- rbind(sa1500, sa1550, sa1600, sa1650, sa1700, sa1750, sa1800,
 
 
 
+## Preparing dataset for the figure 
+cities <- read_csv("data/cities_sa/cities_sa.csv") %>% 
+  filter(!is.na(year), country!="Brazil") %>% 
+  dplyr::select(city_ascii, lat, lng, country, year) %>% 
+  mutate(year = as.numeric(year))
+
+coords      <-  cbind(cities$lng, cities$lat)
+sp          <-  SpatialPoints(coords)
+cities      <-  SpatialPointsDataFrame(coords, cities)
+crs(cities) <- crs
+cities      <- spTransform(cities, crs(sa))
+study_area  <- spTransform(study_area_unprojected, crs(sa))
+study_area  <- study_area[study_area@data$ADMIN!="Brazil", ]
+
+
 
