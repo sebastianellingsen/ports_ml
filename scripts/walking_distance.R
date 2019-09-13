@@ -72,16 +72,100 @@ walking_path <- function(x, port){
 }
 
 ## Calculating the distances
+
+# Main ports
 w_dist_lima       <- sapply(1:length(centroids), 
-                           function(x) walking_path(x, se_ports[3]))
+                           function(x) walking_path(x, 
+                                                    se_ports[se_ports@data$ports=="Lima",]))
 w_dist_veracruz   <- sapply(1:length(centroids), 
-                           function(x) walking_path(x, se_ports[1]))
+                           function(x) walking_path(x, 
+                                                    se_ports[se_ports@data$ports=="Veracruz",]))
 w_dist_cartagena  <- sapply(1:length(centroids), 
-                         function(x) walking_path(x, se_ports[2]))
+                         function(x) walking_path(x, 
+                                                  se_ports[se_ports@data$ports=="Cartagena",]))
 w_dist_panama     <- sapply(1:length(centroids), 
-                            function(x) walking_path(x, se_ports[4]))
+                            function(x) walking_path(x, 
+                                                     se_ports[se_ports@data$ports=="Panama",]))
 w_dist_acapulco   <- sapply(1:length(centroids), 
-                         function(x) walking_path(x, se_ports[5]))
+                         function(x) walking_path(x, 
+                                                  se_ports[se_ports@data$ports=="Acapulco",]))
+
+# Secondary ports
+w_dist_manta          <- sapply(1:length(centroids), 
+                            function(x) walking_path(x, 
+                                                     se_ports[se_ports@data$ports=="Manta",]))
+w_dist_esmeraldas     <- sapply(1:length(centroids), 
+                             function(x) walking_path(x, 
+                                                  se_ports[se_ports@data$ports=="Esmeraldas",]))
+w_dist_trujillo       <- sapply(1:length(centroids), 
+                             function(x) walking_path(x, 
+                                                  se_ports[se_ports@data$ports=="Trujillo",]))
+w_dist_huacho         <- sapply(1:length(centroids), 
+                            function(x) walking_path(x, 
+                                                     se_ports[se_ports@data$ports=="Huacho",]))
+w_dist_paita          <- sapply(1:length(centroids), 
+                            function(x) walking_path(x, 
+                                                   se_ports[se_ports@data$ports=="Paita",]))
+w_dist_huarmey        <- sapply(1:length(centroids), 
+                            function(x) walking_path(x, 
+                                                  se_ports[se_ports@data$ports=="Huarmey",]))
+w_dist_maldonado      <- sapply(1:length(centroids), 
+                            function(x) walking_path(x, 
+                                                    se_ports[se_ports@data$ports=="Maldonado",]))
+w_dist_carupano       <- sapply(1:length(centroids), 
+                             function(x) walking_path(x, 
+                                                      se_ports[se_ports@data$ports=="Carupano",]))
+w_dist_carupano       <- sapply(1:length(centroids), 
+                            function(x) walking_path(x, 
+                                                     se_ports[se_ports@data$ports=="Carupano",]))
+w_dist_barcelona      <- sapply(1:length(centroids), 
+                            function(x) walking_path(x, 
+                                                     se_ports[se_ports@data$ports=="Barcelona",]))
+w_dist_puertocabello  <- sapply(1:length(centroids), 
+                             function(x) walking_path(x, 
+                                                      se_ports[se_ports@data$ports=="Puerto Cabello",]))
+w_dist_maracaibo      <- sapply(1:length(centroids), 
+                                 function(x) walking_path(x, 
+                                                          se_ports[se_ports@data$ports=="Maracaibo",]))
+w_dist_barranquilla   <- sapply(1:length(centroids), 
+                             function(x) walking_path(x, 
+                                                      se_ports[se_ports@data$ports=="Barranquilla",]))
+w_dist_cartagena      <- sapply(1:length(centroids), 
+                                function(x) walking_path(x, 
+                                                         se_ports[se_ports@data$ports=="Cartagena",]))
+w_dist_buenaventura   <- sapply(1:length(centroids), 
+                              function(x) walking_path(x, 
+                                                     se_ports[se_ports@data$ports=="Buenaventura",]))
+w_dist_portobelo      <- sapply(1:length(centroids), 
+                               function(x) walking_path(x, 
+                                                        se_ports[se_ports@data$ports=="Portobelo",]))
+w_dist_puntarena      <- sapply(1:length(centroids), 
+                              function(x) walking_path(x, 
+                                                     se_ports[se_ports@data$ports=="Puntarenas",]))
+w_dist_elrealejo      <- sapply(1:length(centroids), 
+                            function(x) walking_path(x, 
+                                                     se_ports[se_ports@data$ports=="El Realejo",]))
+w_dist_tela           <- sapply(1:length(centroids), 
+                            function(x) walking_path(x, 
+                                                     se_ports[se_ports@data$ports=="Tela",]))
+w_dist_veracruz       <- sapply(1:length(centroids), 
+                                  function(x) walking_path(x, 
+                                                se_ports[se_ports@data$ports=="Veracruz",]))
+w_dist_tuxpan         <- sapply(1:length(centroids), 
+                                   function(x) walking_path(x, 
+                                                    se_ports[se_ports@data$ports=="Tuxpan",]))
+w_dist_manzanillo     <- sapply(1:length(centroids), 
+                                    function(x) walking_path(x, 
+                                                  se_ports[se_ports@data$ports=="Mazanillo",]))
+w_dist_santodomingo   <- sapply(1:length(centroids), 
+                                    function(x) walking_path(x, 
+                                                      se_ports[se_ports@data$ports=="Santo Domingo",]))
+w_dist_santiagodecuba <- sapply(1:length(centroids), 
+                                    function(x) walking_path(x, 
+                                                        se_ports[se_ports@data$ports=="Santiago de Cuba",]))
+w_dist_havana         <- sapply(1:length(centroids), 
+                                    function(x) walking_path(x, 
+                                                        se_ports[se_ports@data$ports=="Havana",]))
 
 ## Joining the full dataset
 df1 <- cbind(ID=south_america_m@data$ID, w_dist_lima, 
