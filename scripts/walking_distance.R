@@ -1,5 +1,7 @@
 ## This script calculates the walking distance from each port to each grid-cell
 
+library("gdistance")
+
 countries_list <- c("Chile", 
                     "Bolivia", 
                     "Peru", 
@@ -34,40 +36,19 @@ countries110       <- ne_download(scale = 110,
 sa                 <- countries110[countries110@data$ADMIN %in% countries_list,]
 sa                 <- gBuffer(sa, width = 0.1)
 elev_sa            <- raster::crop(elev, sa)
-# elev_sa            <- raster::mask(elev_sa, sa, updateNA=T, updatevalue=1000000)
 elev_sa            <- raster::mask(elev_sa, sa)
-elev_sa            <- aggregate(elev_sa, 10)
-
-
+elev_sa            <- aggregate(elev_sa, 40)
 elev_sa            <- projectRaster(elev_sa, 
                                     crs = crs(south_america_m), 
                                     method = "bilinear")
-
 elev_sa[is.na(elev_sa)] <- -99999
 
 # Ports in the Spanish Empire
-# Havana         <- c(-82.366592, 23.513592)
-Veracruz       <- c(-96.134224, 19.173773)
-Cartagena      <- c(-75.51444, 10.39972)
-Lima           <- c(-76.042793, -12.846374)
-Panama         <- c(-79.516670, 8.583333)
-Acapulco       <- c(-98.412437, 16.448824)
-# Valparaiso     <- c(-71.626953, -33.035580)
-
-se_ports <- rbind(Veracruz, Cartagena, Lima, Panama, Acapulco)
-
-se_ports <- SpatialPoints(se_ports)
-se_ports <- SpatialPoints(se_ports, 
-                          proj4string=CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84"), 
-                          bbox = NULL)
-se_ports <- spTransform(se_ports, crs(elev_sa))
+source("scripts/data_prep_ports.R")
+se_ports <- spTransform(ports, crs(elev_sa))
 
 
 ## Calculate walking distance to lima for each grid cell 
-lima <- se_ports[4]
-
-library("gdistance")
-
 altDiff <- function(x){x[2] - x[1]} 
 hd      <- transition(elev_sa, altDiff, 8, symm=FALSE)
 
@@ -112,7 +93,11 @@ df1 <- cbind(ID=south_america_m@data$ID, w_dist_lima,
 
 df2 <- cbind(ID=south_america@data$ID) %>% 
   as.data.frame() %>%  full_join(df1, by="ID") %>% 
-  dplyr::select(w_dist_lima, w_dist_veracruz, w_dist_cartagena, w_dist_panama, w_dist_acapulco)
+  dplyr::select(w_dist_lima, 
+                w_dist_veracruz, 
+                w_dist_cartagena, 
+                w_dist_panama, 
+                w_dist_acapulco)
 
 south_america@data$wd_lima      <- df2$w_dist_lima
 south_america@data$wd_veracruz  <- df2$w_dist_veracruz
@@ -121,9 +106,9 @@ south_america@data$wd_panama    <- df2$w_dist_panama
 south_america@data$wd_acapulco  <- df2$w_dist_acapulco
 
 
-
-
-
-
-
+south_america@data <- south_america@data %>% mutate(walk=log(pmin(wd_lima,
+                                                wd_veracruz,
+                                                wd_cartagena,
+                                                wd_panama,
+                                                wd_acapulco)))
 
