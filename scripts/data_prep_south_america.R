@@ -9,7 +9,6 @@ countries_list <- c("Chile",
                     "Bolivia", 
                     "Peru", 
                     "Argentina", 
-                    "Brazil", 
                     "Uruguay",   
                     "Ecuador", 
                     "Colombia", 
@@ -85,9 +84,9 @@ study_area <- spTransform(study_area,
                           crs_south_america)
 
 ## Generating the grid cells
-buffer <- gBuffer(study_area, width = 50)
+# buffer <- gBuffer(study_area, width = 50)
 
-hex_points <- spsample(buffer, 
+hex_points <- spsample(study_area, 
                        type = "hexagonal", 
                        cellsize = 50)
 
@@ -126,11 +125,7 @@ for (j in countries_list){
                   ID_country_tmp)
   country_var <- c(country_var,
                    country_var_tmp)
-
-  print(j)
 }
-
-
 
 ## Preparing the files to join
 ID_country_vector <- unlist(ID_country)
