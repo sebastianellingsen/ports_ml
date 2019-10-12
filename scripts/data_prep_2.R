@@ -21,27 +21,36 @@ p_load(tidyverse,
        caret,
        lfe,
        glmnet,
-       broom)
+       broom,
+       rWind,
+       lubridate)
 
 newcrs <- CRS("+proj=moll +datum=WGS84 +units=km")
 bwidth <- 3
 
-countries_list <- c("CI", 
-                    "PE", 
-                    "AR", 
-                    "UY",   
-                    "EC", 
-                    "CO", 
-                    "VE", 
-                    "PA",
-                    "SV", 
-                    "HN", 
-                    "CR", 
-                    "GT", 
-                    "MX", 
-                    "NI", 
-                    "CU", 
-                    "DO")
+wpi_countries_list <- c("CL", 
+                        "PE", 
+                        "AR", 
+                        "UY",   
+                        "EC",
+                        "HO",
+                        "CO", 
+                        "VE", 
+                        "PA",
+                        "SV", 
+                        "HN", 
+                        "CR",
+                        "CS",
+                        "GT", 
+                        "MX", 
+                        "NI", 
+                        "CU", 
+                        "DO",
+                        "NU",
+                        "PM",
+                        "ES",
+                        "CI",
+                        "DR")
 
 ## Loading ports datasets
 
@@ -49,7 +58,7 @@ countries_list <- c("CI",
 ports <- readOGR("data/WPI_Shapefiles/WPI_Shapefile2010", "WPI")
 ports <- ports[!is.na(ports$HARBORTYPE),]
 ports <- ports[ports$HARBORTYPE=="CN",]
-ports <- ports[!(ports$COUNTRY%in%countries_list),]
+ports <- ports[!(ports$COUNTRY%in%wpi_countries_list),]
 
 ports <- ports@data %>%   
   rename(lat = LATITUDE, lon = LONGITUDE) %>% 
@@ -99,18 +108,31 @@ rivers50 <- ne_download(scale = 50,
                         category = 'physical')
 
 ## Elevation and terrain ruggedness data
-elev <- raster("data/elevation/ETOPO1_Ice_g_geotiff.tif")
+elev      <- raster("data/elevation/ETOPO1_Ice_g_geotiff.tif")
 crs(elev) <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"
-elev <- projectRaster(elev, 
-                      crs    = newcrs, 
-                      method = "bilinear")
+elev      <- projectRaster(elev, 
+                           crs    = newcrs, 
+                           method = "bilinear")
 
-tri        <- raster("data/prepared_rasters/tri.grd")
-
+tri   <- raster("data/prepared_rasters/tri.grd")
 slope <- terrain(elev, 
                  opt='slope', 
                  unit='radians', 
                  neighbors=8)
+
+## Preparing and downloading data 
+dt <- seq(ymd_hms(paste(2011, 9, 3,  00, 00, 00, sep = "-")),
+          ymd_hms(paste(2017, 9, 11, 21, 00, 00, sep = "-")),
+          by="100 days")
+
+wind_series       <- wind.dl_2(dt, -170, 170, -90, 80)
+wind_series_layer <- wind2raster(wind_series)
+
+# Averaging over the period and making raster file
+wind_series_mean       <- wind.mean(wind_series)
+wind_series_mean_layer <- wind2raster(wind_series_mean)
+wind <- wind_series_mean_layer@layers[[2]]
+
 
 ## Projecting the data 
 countries10  <- spTransform(countries10, newcrs)
@@ -119,23 +141,13 @@ coastline10  <- spTransform(coastline10, newcrs)
 coastline110 <- spTransform(coastline110, newcrs)
 rivers50     <- spTransform(rivers50, newcrs)
 ports        <- spTransform(ports, newcrs)
+wind         <- spTransform(wind, newcrs)
 
 
 
 ################################################################################
 ######################### Generating dataset ###################################
 ################################################################################
-
-## Removing small countries
-# small <- c("Vanatu", 
-#            "San Marino", 
-#            "Vatican", 
-#            "Fiji", 
-#            "Solomon Islands",
-#            "Federated States of Micronesia", 
-#            "Palau", 
-#            "Samoa", 
-#            "Nauru")
 
 # study_area <- countries10[!(countries10$SOVEREIGNT %in% small),]
 study_area <- countries10
@@ -149,8 +161,15 @@ a <- gBuffer(ports, width = bwidth, byid=TRUE)
 
 # Elevation in buffer
 b           <- raster::extract(elev, a)
-tri_port    <- raster::extract(elev, a)
 slope_port  <- raster::extract(slope, a)
+
+
+layer <- raster::extract(wind, a)
+wind <- sapply(1:length(layer), 
+                   function(x) mean(layer[[x]],
+                                   na.rm = TRUE))
+# Imputing 23 NAs with the mean value 
+wind_p <- ifelse(is.na(wind), mean(wind, na.rm=T), wind)
 
 # Elevation 
 elevation_p <- raster::extract(elev, ports)
@@ -205,7 +224,7 @@ sample_coastline <- spsample(coastline10,
 sample_coastline <- sample_coastline[sample(length(sample_coastline)),] 
 
 ## Calculating the length of the coastline 
-coastline_length <- function(x){
+find_coastline_length <- function(x){
   ## Finding the closest on point on the coastline
   gd                <-  gDistance(sample_coastline,
                                   ports[x],
@@ -218,7 +237,7 @@ coastline_length <- function(x){
 }
 
 coastline_length <- sapply(1:length(ports), 
-                           function(x) coastline_length(x))
+                           function(x) find_coastline_length(x))
 
 
 ## Combining the data 
@@ -233,6 +252,7 @@ port_df <- cbind(mean_slope,
                  cont,
                  coastline_length,
                  river_dist,
+                 wind_p,
                  y)
 
 
@@ -251,8 +271,14 @@ a <- gBuffer(sample, width = bwidth, byid=TRUE)
 
 # Elevation in buffer
 b            <-  raster::extract(elev, a)
-tri_sample   <-  raster::extract(elev, a)
 slope_sample <-  raster::extract(slope, a)
+
+layer <- raster::extract(wind, a)
+wind <- sapply(1:length(layer), 
+               function(x) mean(layer[[x]],
+                                na.rm = TRUE))
+# Imputing 23 NAs with the mean value 
+wind_p <- ifelse(is.na(wind), mean(wind, na.rm=T), wind)
 
 # Elevation 
 elevation_p <- raster::extract(elev, sample)
@@ -305,7 +331,7 @@ river_dist <- sapply(1:length(a),
 # Adding information on the coastline length
 
 coastline_length <- sapply(1:length(a), 
-                           function(x) coastline_length(x))
+                           function(x) find_coastline_length(x))
 
 ## Combining the data 
 no_port_df <- cbind(mean_slope, 
@@ -319,26 +345,27 @@ no_port_df <- cbind(mean_slope,
                     cont,
                     coastline_length,
                     river_dist,
+                    wind_p,
                     y)
 
 ## Generating dataframe for prediction
 pred_dataframe <- rbind(port_df, no_port_df) %>% 
   data.frame() %>%
-  mutate(y                        = as.factor(y),
-         mean_slope               = as.numeric(as.character(mean_slope)), 
-         mean_tri                 = as.numeric(as.character(mean_tri)), 
-         min_elev                 = as.numeric(as.character(min_elev)),
-         max_elev                 = as.numeric(as.character(max_elev)), 
-         max_elev                 = as.numeric(as.character(max_elev)), 
-         coastline_length         = as.numeric(as.character(coastline_length)), 
-         river_dist               = as.numeric(as.character(river_dist)), 
-         mean_elev                = as.numeric(as.character(mean_elev)),
-         elevation_p              = as.numeric(as.character(elevation_p)),
-         tri_p                    = as.numeric(as.character(tri_p)),
-         slope_p                  = as.numeric(as.character(slope_p)))
+  mutate(y                = as.factor(y),
+         mean_slope       = as.numeric(as.character(mean_slope)), 
+         mean_tri         = as.numeric(as.character(mean_tri)), 
+         min_elev         = as.numeric(as.character(min_elev)),
+         max_elev         = as.numeric(as.character(max_elev)), 
+         coastline_length = as.numeric(as.character(coastline_length)), 
+         river_dist       = as.numeric(as.character(river_dist)), 
+         mean_elev        = as.numeric(as.character(mean_elev)),
+         elevation_p      = as.numeric(as.character(elevation_p)),
+         tri_p            = as.numeric(as.character(tri_p)),
+         wind_p            = as.numeric(as.character(wind_p)),
+         slope_p          = as.numeric(as.character(slope_p)))
 
 ## Saving file as a csv
-pred_dataframe1 <- pred_dataframe[sample(dim(pred_dataframe)[1]), ]
+pred_dataframe <- pred_dataframe[sample(dim(pred_dataframe)[1]), ]
 write.csv(pred_dataframe, "output/pred_dataframe.csv", row.names = FALSE)
 
 
