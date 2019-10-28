@@ -1,15 +1,6 @@
 ## This file splits the data and fits the final model  
-pred_dataframe <- read_csv("output/pred_dataframe.csv") %>% dplyr::select(-cont)
 
-
-
-
-
-pred_dataframe_1 <- pred_dataframe1 %>% dplyr::select(-river_dist)
-# %>%  
-#   # dplyr::select(-c(slope, aspect, slope2, aspect2)) %>% 
-#   filter(!is.nan(mean_tri))
-
+## loading packages
 if (!require(pacman)) install.packages("pacman")
 p_load(ranger, 
        Metrics, 
@@ -19,9 +10,14 @@ p_load(ranger,
        stargazer, 
        caret)
 
+## Preparing the data 
+pred_dataframe <- read_csv("output/pred_dataframe.csv") %>% dplyr::select(-river_dist) 
+
+
+
 ## Predicting the outcome
 ## Splitting the data to training, testing
-data_split <- initial_split(pred_dataframe1, 0.75)
+data_split <- initial_split(pred_dataframe, 0.75)
 training_data <- training(data_split)
 testing_data <- testing(data_split)
 
@@ -90,18 +86,16 @@ training_data$y <- as.numeric(training_data$y)
 ## Fitting the full model to the training data
 model1 <- ranger(formula= as.numeric(y)~.,
                  data=training_data,
-                 num.trees = 1000,
-                 mtry = 4)
-model2 <- ranger(formula= as.numeric(y)~min_elev,
-                 data=training_data,
-                 num.trees = 1000,
+                 num.trees = 1,
                  mtry = 1)
+model2 <- ranger(formula= as.numeric(y)~.,
+                 data=training_data,
+                 num.trees = 10,
+                 mtry = 2)
 model3 <- ranger(formula= as.numeric(y)~.,
                  data=training_data,
-                 num.trees = 5000,
+                 num.trees = 1000,
                  mtry = 3)
-
-
 
 prediction1 <- predict(model1, testing_data)$predictions-1
 prediction2 <- predict(model2, testing_data)$predictions-1
@@ -118,20 +112,16 @@ plot(perf1, col="green")
 plot(perf2, add=TRUE, col="red")
 plot(perf3, add=TRUE, col="blue")
 abline(a=0, b= 1,col="grey", lty=2)
-# 
-# 
-
 
 
 
 
 ## The confusion matrix with rf
-
 model <- ranger(formula= as.numeric(y)~.,
                 data=training_data,
                 num.trees = 1000,
-                mtry = 5)
-prediction <- predict(model, testing_data)$predictions-1
+                mtry = 3)
+prediction <- predict(model, testing_data)$predictions
 prediction <- ifelse(prediction>0.5,1,0)
 
 confusion_matrix <- table(prediction, testing_data$y)
@@ -146,12 +136,16 @@ confusionMatrix(confusion_matrix)
 # ## The confusion matrix with ols
 training_data$y <- (training_data$y)
 
-model <- lm(formula= as.numeric(y)~., data=train)
-m_fit <- predict(model, test)-1
+model <- lm(formula= as.numeric(y)~., data=training_data)
+m_fit <- predict(model, testing_data)
 prediction <- ifelse(m_fit>0.5,1,0)
 
-confusion_matrix <- table(prediction, test$y)
+confusion_matrix <- table(prediction, testing_data$y)
 confusionMatrix(confusion_matrix)
+
+pred1 <- prediction(m_fit, testing_data$y)
+perf1 <- performance(pred1, "tpr", "fpr")
+
 # 
 # model <- ranger(formula= as.factor(y)~.,
 #                 data=training_data,
@@ -178,13 +172,9 @@ confusionMatrix(confusion_matrix)
 #           summary = FALSE, 
 #           type="latex", 
 #           header = FALSE)
-# 
-# 
-# 
-# 
-# 
-# 
-# 
+
+
+
 library(vip)
 var_imp <- vip(model)
 #impurity/binomial?
@@ -193,13 +183,34 @@ var_imp <- vip(model)
 model <- ranger(formula= as.factor(y)~ .,
                 data=training_data,
                 num.trees = 1000,
-                mtry = 4,
+                mtry = 3,
                 importance="impurity")
 
 
 library(vip)
 
 var_imp <- vip(model)
+
+df <- cbind(importance = as.numeric(var_imp[["data"]][["Importance"]]),
+            variable   = as.factor(var_imp[["data"]][["Variable"]])) %>% 
+  as.data.frame() 
+
+ggplot(data=df,aes(y=reorder(variable, importance), x=importance))+
+  geom_point()+ylab("")+xlab("Variable Importance") +
+  scale_y_discrete(labels=c("8" = "Dist. River", '5' = 'Slope',
+                            '7' = 'Min. Elevation',
+                            '3' = 'Max Elevation',
+                            '2' = 'P. Elevation',
+                            '1' = 'Shelter',
+                            '9' = 'P. Ruggednes',
+                            '4' = 'Mean Elevation',
+                            '6' = 'Mean Ruggednes'))
+
+  
+  
+
+
+
 # Plot model
 plot(model)
 # 
