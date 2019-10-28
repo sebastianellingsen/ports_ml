@@ -1,48 +1,37 @@
 ## This file prepares the city dataset of cities for analysis
 
-## Chandler dataset
-## Loading data 
-dat = read.csv("data/chandler/chandlerV2.csv",
-               stringsAsFactors=FALSE, fileEncoding="latin1")  %>% 
-  mutate(Longitude=as.numeric(Longitude), Latitude=as.numeric(Latitude)) %>% 
-  # filter(!is.na(Longitude), !is.na(Latitude)) %>% 
-  gather("year", "pop",7:812)  %>% 
-  filter(!is.na(pop)) %>% 
-  dplyr::select(-OtherName) %>% 
-  filter(!is.na(Longitude), !is.na(Latitude)) 
+countries_list <- c("Chile", 
+                    "Bolivia", 
+                    "Peru", 
+                    "Argentina", 
+                    "Uruguay",   
+                    "Ecuador", 
+                    "Colombia", 
+                    "Paraguay", 
+                    "Venezuela", 
+                    "Panama",
+                    "El Salvador", 
+                    "Honduras", 
+                    "Costa Rica", 
+                    "Guatemala", 
+                    "Mexico", 
+                    "Nicaragua", 
+                    "Cuba", 
+                    "Dominican Republic")
 
-dat$year <- as.numeric(str_replace_all(dat$year, "AD_", ""))
-dat <- dat[-c(1:130),]
-
-## Make a spatial dataframe
-crs <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"
-coords = cbind(dat$Longitude, dat$Latitude)
-sp = SpatialPoints(coords)
-
-cities = SpatialPointsDataFrame(coords, dat)
-cities = SpatialPointsDataFrame(sp, dat)
-crs(cities)=crs
-
-cities_sa <- cities[cities@data$Country %in% countries_list,]
-
-cities_sa <- spTransform(cities_sa, crs(south_america))
-
-cities_sa_pre_hispanic <- cities_sa[cities_sa@data$year<=1500, ]
-
-
-
-
-
-## This section generates a panel of cities at the grid-cell level
-
+## This section generates a panel of cities at the grid-cell level at 50 year 
+## intervals 
 cities <- read_csv("data/cities_sa/cities_sa.csv") %>% 
-  filter(!is.na(year), country!="Brazil") %>% 
+  filter(!is.na(year), country!="Brazil", !is.na(pop), pop>1000) %>% 
   dplyr::select(city_ascii, lat, lng, country, year)
 
 years <- c("1500", "1550", "1600", "1650", "1700", "1750", "1800",
            "1850", "1900", "1950", "2000")
 
 crs <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"
+
+## Dataset containing the spanish empire 
+sa <- south_america[south_america@data$ccode!="Brazil", ]
 
 for(i in years){ 
   
@@ -63,9 +52,6 @@ for(i in years){
   assign(name, cities_tmp)
 }
 
-## Dataset containing the spanish empire 
-sa <- south_america[south_america@data$ccode!="Brazil", ]
-
 # Function to find the number of cities per grid-cell
 cities_cell <- function(x, points){
   cell   <- sa[sa@data$ID==x, ]
@@ -85,6 +71,7 @@ sa@data$city_1850 <- sapply(sa@data$ID, function(x) cities_cell(x, cities_1850))
 sa@data$city_1900 <- sapply(sa@data$ID, function(x) cities_cell(x, cities_1900))
 sa@data$city_1950 <- sapply(sa@data$ID, function(x) cities_cell(x, cities_1950))
 sa@data$city_2000 <- sapply(sa@data$ID, function(x) cities_cell(x, cities_2000))
+
 
 # Defining one dataframe for each year and joining these
 sa1500 <- sa@data %>% dplyr::select(-c(city_1550, city_1600, city_1650, 
@@ -159,21 +146,12 @@ sa_panel <- rbind(sa1500, sa1550, sa1600, sa1650, sa1700, sa1750, sa1800,
                   sa1850, sa1900, sa1950, sa2000) %>% 
   dplyr::select(ID, year, city, ccode, states)
 
+## Add data on the change in market access 
+ma_data1 <- south_america@data %>%  
+  full_join(sa_panel, by=c("ID", "ccode", "states"))
 
+write.csv(ma_data1, "data/ma_data1.csv", row.names = FALSE)
 
-## Preparing dataset for the figure 
-cities <- read_csv("data/cities_sa/cities_sa.csv") %>% 
-  filter(!is.na(year), country!="Brazil") %>% 
-  dplyr::select(city_ascii, lat, lng, country, year) %>% 
-  mutate(year = as.numeric(year))
-
-coords      <-  cbind(cities$lng, cities$lat)
-sp          <-  SpatialPoints(coords)
-cities      <-  SpatialPointsDataFrame(coords, cities)
-crs(cities) <- crs
-cities      <- spTransform(cities, crs(sa))
-study_area  <- spTransform(study_area_unprojected, crs(sa))
-study_area  <- study_area[study_area@data$ADMIN!="Brazil", ]
 
 
 
