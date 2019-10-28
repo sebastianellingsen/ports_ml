@@ -1,6 +1,7 @@
 ## This file adds grid cell level data to the main dataset
 library(spatialEco)
 
+## Countries in the main sample 
 countries_list <- c("Chile", 
                     "Bolivia", 
                     "Peru", 
@@ -20,15 +21,13 @@ countries_list <- c("Chile",
                     "Cuba", 
                     "Dominican Republic")
 
-## loading data
-
+## Accessing the projection 
 crs_south_america <- crs(south_america)
 
 # Weather and climate data
 bio = getData('worldclim', var='bio', res=2.5, lon=22.440823, lat=5.539446)
 
 for(i in 1:20) { 
-  
   k <- projectRaster(aggregate(raster(bio, layer=i), 2), 
                      crs = crs_south_america, 
                      method = "bilinear")
@@ -87,7 +86,7 @@ elev               <- projectRaster(elev,
                                     crs = crs_south_america, 
                                     method = "bilinear")
 
-# Terrain ruggedness index from Riley et al (1999)
+# Terrain ruggedness index from Riley et al. (1999)
 tri <- tri(elev, s = 3, exact = TRUE)
 
 # Slope
@@ -191,9 +190,7 @@ coast_ds <- cbind("ID"=colnames(gd), "distance"=gd[1:dim(gd)[2]]) %>%
 # Add distances to the grid cell data  
 south_america@data$coast_ds <- coast_ds$distance
 
-
 ## Adding longitude and latitude 
-
 # coordinates under the projection used
 south_america@data$long_proj <- coordinates(south_america)[,1]
 south_america@data$lat_proj <- coordinates(south_america)[,2]
@@ -369,6 +366,18 @@ distance_to_pport <- function(x){
 south_america@data$dist_pport <- sapply(south_america@data$ID, 
                                           function(x) distance_to_pport(x))
 
+predicted_ports_l <- readOGR("output/predicted_ports_l.shp", "predicted_ports_l")
+predicted_ports_l <- spTransform(predicted_ports_l, crs(south_america))
+distance_to_pport_l <- function(x){
+  cell <- south_america[south_america@data$ID==x,]
+  return(gDistance(cell, predicted_ports_l))
+}
+south_america@data$dist_pport_l <- sapply(south_america@data$ID, 
+                                        function(x) distance_to_pport_l(x))
+
+south_america@data$close_pport_l <- ifelse(south_america@data$dist_pport_l<75, 1, 0)
+
+
 ## Distance to ports in 1777
 distance_to_port_1777 <- function(x){
   cell <- south_america[south_america@data$ID==x,]
@@ -378,7 +387,7 @@ south_america@data$dist_port_1777<- sapply(south_america@data$ID,
                                            function(x) distance_to_port_1777(x))
 
 ## Preparing data on roads and railways
-source('../scripts/data_prep_infrastructure.R')
+source('scripts/data_prep_infrastructure.R')
 ## Overlapping road
 over_road <- function(x){
   cell <- south_america[south_america@data$ID==x,]
@@ -398,7 +407,7 @@ over_railroad <- function(x){
 south_america@data$railroad <- sapply(south_america@data$ID, 
                                         function(x) over_railroad(x))
 
-
+## Calculating the max. population density by grid cell 
 population_by_cell <- function(x){
       cell <- south_america[south_america@data$ID==x,]
       return(max(extract(pop, cell) %>% unlist(), na.rm = T))
@@ -408,15 +417,6 @@ south_america@data$pop <- sapply(south_america@data$ID,
 
 
 ## Estimating the sailing distance along the coast
-
-
-
-
-
-
-
-
-
 
 
 ## Population density 
@@ -440,10 +440,10 @@ south_america@data$sites <- sapply(south_america@data$ID,
 
 
 ## Defining variables
-south_america@data$close_pport <- ifelse(south_america@data$dist_pport<=75, 1, 0)
-south_america@data$urban       <- ifelse(south_america@data$night_lights>0, 1, 0)
-south_america@data$coastal     <- ifelse(south_america@data$coast_ds<=75, 1, 0)
-south_america@data$close_port  <- ifelse(south_america@data$dist_port<=75, 1, 0)
+south_america@data$urban           <- ifelse(south_america@data$night_lights>0, 1, 0)
+south_america@data$coastal         <- ifelse(south_america@data$coast_ds<=75, 1, 0)
+south_america@data$close_port      <- ifelse(south_america@data$dist_port<=75, 1, 0)
+south_america@data$close_port_1777 <- ifelse(south_america@data$dist_pport_l<=75, 1, 0)
 
 
 
