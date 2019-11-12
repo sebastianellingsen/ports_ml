@@ -235,6 +235,30 @@ vc_country <- sapply(south_america@data$ID,
 south_america@data$vc_country <- vc_country
 
 
+
+## Audiencia and viceroyalty fixed effects using 1790 borders 
+audiencia   <- readOGR("Audiencia_Dissolve_1790/Audiencia_Dissolve_1790.shp", "Audiencia_Dissolve_1790")
+viceroyalty <- readOGR("Virreinato_Dissolve_1790/Virreinato_Dissolve_1790.shp", "Virreinato_Dissolve_1790")
+viceroyalty <- spTransform(viceroyalty, crs(south_america))
+audiencia   <- spTransform(audiencia, crs(south_america))
+
+extracting_viceroyalty <- function(x){
+  cell <- south_america[south_america@data$ID==x, ]
+  return(over(cell, viceroyalty)$Nombre)
+}
+south_america@data$viceroyalty <- as.character(sapply(south_america@data$ID, 
+                                                   function(x) extracting_viceroyalty(x)))
+## Southern Venezuela missing, adding these manually 
+south_america@data$viceroyalty <- ifelse(is.na(south_america@data$viceroyalty), 'Nueva Granada', south_america@data$viceroyalty)
+
+extracting_audiencia <- function(x){
+  cell <- south_america[south_america@data$ID==x, ]
+  return(over(cell, audiencia)$Nombre)
+}
+south_america@data$audiencia <- as.character(sapply(south_america@data$ID, 
+                                                      function(x) extracting_audiencia(x)))
+south_america@data$audiencia <- ifelse(is.na(south_america@data$audiencia), 'frontier', south_america@data$audiencia)
+
 ## Distance to major cities 
 dat = read.csv("data/chandler/chandlerV2.csv",
                stringsAsFactors=FALSE, fileEncoding="latin1")  %>% 
@@ -438,12 +462,76 @@ south_america@data$sites <- sapply(south_america@data$ID,
                                      gDistance(south_america[south_america@data$ID==x,], 
                                                         arch_sites))
 
-
 ## Defining variables
 south_america@data$urban           <- ifelse(south_america@data$night_lights>0, 1, 0)
 south_america@data$coastal         <- ifelse(south_america@data$coast_ds<=75, 1, 0)
 south_america@data$close_port      <- ifelse(south_america@data$dist_port<=75, 1, 0)
 south_america@data$close_port_1777 <- ifelse(south_america@data$dist_pport_l<=75, 1, 0)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## loading the population data, is it more consentrated along the coast in some periphery?
+df1 <- south_america[south_america@data$ccode=='Mexico',]
+
+ggplot(data = df1@data, aes(x = coast_ds, y = log(1+night_lights))) + 
+  geom_point(alpha = 0.1)+
+geom_smooth(method='lm', se=F, col='black', size=0.3, show.legend = F)
+
+df1 <- south_america[south_america@data$ccode=='Peru',]
+
+summary(felm(data = df1, 
+          log(pop) ~ coast_ds|
+          as.factor(states)|
+          0|
+          states))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
