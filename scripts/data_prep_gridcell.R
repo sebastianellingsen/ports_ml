@@ -410,6 +410,23 @@ distance_to_port_1777 <- function(x){
 south_america@data$dist_port_1777<- sapply(south_america@data$ID, 
                                            function(x) distance_to_port_1777(x))
 
+
+
+## Distance to the free ports
+free_ports <- ports[ports@data$`Port status`!='Restricted', ]
+free_ports <- spTransform(free_ports, crs(south_america))
+
+distance_free_port <- function(x){
+  cell <- south_america[south_america@data$ID == x,]
+  return(gDistance(free_ports, cell))
+}
+
+south_america@data$distance_free_port <- sapply(south_america@data$ID, 
+                                                function(x) distance_free_port(x))
+
+
+
+
 ## Preparing data on roads and railways
 source('scripts/data_prep_infrastructure.R')
 ## Overlapping road
@@ -431,10 +448,16 @@ over_railroad <- function(x){
 south_america@data$railroad <- sapply(south_america@data$ID, 
                                         function(x) over_railroad(x))
 
+
+pop <- raster("data/population_density/gpw-v4-population-density-adjusted-to-2015-unwpp-country-totals-rev10_2015_2pt5_min_tif/gpw_v4_population_density_adjusted_to_2015_unwpp_country_totals_rev10_2015_2pt5_min.tif")
+pop <- projectRaster(pop, 
+                     crs = crs_south_america, 
+                     method = "bilinear")
+
 ## Calculating the max. population density by grid cell 
 population_by_cell <- function(x){
       cell <- south_america[south_america@data$ID==x,]
-      return(max(extract(pop, cell) %>% unlist(), na.rm = T))
+      return(mean(extract(pop, cell) %>% unlist(), na.rm = T))
 }
 south_america@data$pop <- sapply(south_america@data$ID, 
                                  function(x) population_by_cell(x))
