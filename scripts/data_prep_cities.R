@@ -158,7 +158,7 @@ write.csv(ma_data1, "data/ma_data2.csv", row.names = FALSE)
 
 ## add 25 year periods 
 cities <- read_csv("data/cities_sa/cities_sa.csv") %>% 
-  filter(!is.na(year), country!="Brazil", !is.na(pop), pop>50000) %>% 
+  filter(!is.na(year), country!="Brazil", !is.na(pop), pop>10000) %>% 
   dplyr::select(city_ascii, lat, lng, country, year)
 
 years <- c("1500", "1520", "1540", "1560", "1580",
@@ -237,86 +237,86 @@ sa@data$city_2000 <- sapply(sa@data$ID, function(x) cities_cell(x, cities_2000))
 # Defining one dataframe for each year and joining these
 ## 16th century
 sa1500 <- sa@data %>% dplyr::select(ID, ccode, states, city_1500) %>% 
-  rename(city = city_1500) %>% mutate(year = 1500)
+  dplyr::rename(city = city_1500) %>% mutate(year = 1500)
 
 sa1520 <- sa@data %>% dplyr::select(ID, ccode, states, city_1520) %>% 
-  rename(city = city_1520) %>% mutate(year = 1520)
+  dplyr::rename(city = city_1520) %>% mutate(year = 1520)
 
 sa1540 <- sa@data %>% dplyr::select(ID, ccode, states, city_1540) %>% 
-  rename(city = city_1540) %>% mutate(year = 1540)
+  dplyr::rename(city = city_1540) %>% mutate(year = 1540)
 
 sa1560 <- sa@data %>% dplyr::select(ID, ccode, states, city_1560) %>% 
-  rename(city = city_1560) %>% mutate(year = 1560)
+  dplyr::rename(city = city_1560) %>% mutate(year = 1560)
 
 sa1580 <- sa@data %>% dplyr::select(ID, ccode, states, city_1580) %>% 
-  rename(city = city_1580) %>% mutate(year = 1580)
+  dplyr::rename(city = city_1580) %>% mutate(year = 1580)
 
 ## 17th century
 sa1600 <- sa@data %>% dplyr::select(ID, ccode, states, city_1600) %>% 
-  rename(city = city_1600) %>% mutate(year = 1600)
+  dplyr::rename(city = city_1600) %>% mutate(year = 1600)
 
 sa1620 <- sa@data %>% dplyr::select(ID, ccode, states, city_1620) %>% 
-  rename(city = city_1620) %>% mutate(year = 1620)
+  dplyr::rename(city = city_1620) %>% mutate(year = 1620)
 
 sa1640 <- sa@data %>% dplyr::select(ID, ccode, states, city_1640) %>% 
-  rename(city = city_1640) %>% mutate(year = 1640)
+  dplyr::rename(city = city_1640) %>% mutate(year = 1640)
 
 sa1660 <- sa@data %>% dplyr::select(ID, ccode, states, city_1660) %>% 
-  rename(city = city_1660) %>% mutate(year = 1660)
+  dplyr::rename(city = city_1660) %>% mutate(year = 1660)
 
 sa1680 <- sa@data %>% dplyr::select(ID, ccode, states, city_1680) %>% 
-  rename(city = city_1680) %>% mutate(year = 1680)
+  dplyr::rename(city = city_1680) %>% mutate(year = 1680)
 
 ## 18th century
 sa1700 <- sa@data %>% dplyr::select(ID, ccode, states, city_1700) %>% 
-  rename(city = city_1700) %>% mutate(year = 1700)
+  dplyr::rename(city = city_1700) %>% mutate(year = 1700)
 
 sa1720 <- sa@data %>% dplyr::select(ID, ccode, states, city_1720) %>% 
-  rename(city = city_1720) %>% mutate(year = 1720)
+  dplyr::rename(city = city_1720) %>% mutate(year = 1720)
 
 sa1740 <- sa@data %>% dplyr::select(ID, ccode, states, city_1740) %>% 
-  rename(city = city_1740) %>% mutate(year = 1740)
+  dplyr::rename(city = city_1740) %>% mutate(year = 1740)
 
 sa1760 <- sa@data %>% dplyr::select(ID, ccode, states, city_1760) %>% 
-  rename(city = city_1760) %>% mutate(year = 1760)
+  dplyr::rename(city = city_1760) %>% mutate(year = 1760)
 
 sa1780 <- sa@data %>% dplyr::select(ID, ccode, states, city_1780) %>% 
-  rename(city = city_1780) %>% mutate(year = 1780)
+  dplyr::rename(city = city_1780) %>% mutate(year = 1780)
 
 ## 19th century
 sa1800 <- sa@data %>% dplyr::select(ID, ccode, states, city_1800) %>% 
-  rename(city = city_1800) %>% mutate(year = 1800)
+  dplyr::rename(city = city_1800) %>% mutate(year = 1800)
 
 sa1820 <- sa@data %>% dplyr::select(ID, ccode, states, city_1820) %>% 
-  rename(city = city_1820) %>% mutate(year = 1820)
+  dplyr::rename(city = city_1820) %>% mutate(year = 1820)
 
 sa1840 <- sa@data %>% dplyr::select(ID, ccode, states, city_1840) %>% 
-  rename(city = city_1840) %>% mutate(year = 1840)
+  dplyr::rename(city = city_1840) %>% mutate(year = 1840)
 
 sa1860 <- sa@data %>% dplyr::select(ID, ccode, states, city_1860) %>% 
-  rename(city = city_1860) %>% mutate(year = 1860)
+  dplyr::rename(city = city_1860) %>% mutate(year = 1860)
 
 sa1880 <- sa@data %>% dplyr::select(ID, ccode, states, city_1880) %>% 
-  rename(city = city_1880) %>% mutate(year = 1880)
+  dplyr::rename(city = city_1880) %>% mutate(year = 1880)
 
 ## 20th century
 sa1900 <- sa@data %>% dplyr::select(ID, ccode, states, city_1900) %>% 
-  rename(city = city_1900) %>% mutate(year = 1900)
+  dplyr::rename(city = city_1900) %>% mutate(year = 1900)
 
 sa1920 <- sa@data %>% dplyr::select(ID, ccode, states, city_1920) %>% 
-  rename(city = city_1920) %>% mutate(year = 1920)
+  dplyr::rename(city = city_1920) %>% mutate(year = 1920)
 
 sa1940 <- sa@data %>% dplyr::select(ID, ccode, states, city_1940) %>% 
-  rename(city = city_1940) %>% mutate(year = 1940)
+  dplyr::rename(city = city_1940) %>% mutate(year = 1940)
 
 sa1960 <- sa@data %>% dplyr::select(ID, ccode, states, city_1960) %>% 
-  rename(city = city_1960) %>% mutate(year = 1960)
+  dplyr::rename(city = city_1960) %>% mutate(year = 1960)
 
 sa1980 <- sa@data %>% dplyr::select(ID, ccode, states, city_1980) %>% 
-  rename(city = city_1980) %>% mutate(year = 1980)
+  dplyr::rename(city = city_1980) %>% mutate(year = 1980)
 
 sa2000 <- sa@data %>% dplyr::select(ID, ccode, states, city_2000) %>% 
-  rename(city = city_2000) %>% mutate(year = 2000)
+  dplyr::rename(city = city_2000) %>% mutate(year = 2000)
 
 ## Final panel dataset 
 sa_panel <- rbind(sa1500, sa1520, sa1540, sa1560, sa1580, 
@@ -331,7 +331,7 @@ sa_panel <- rbind(sa1500, sa1520, sa1540, sa1560, sa1580,
 ma_data <- south_america@data %>%  
   full_join(sa_panel, by=c("ID", "ccode", "states"))
 
-write.csv(ma_data1, "data/ma_data_20.csv", row.names = FALSE)
+write.csv(ma_data, "data/ma_data_20.csv", row.names = FALSE)
 
 
 
