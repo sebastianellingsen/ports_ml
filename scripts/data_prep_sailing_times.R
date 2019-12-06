@@ -14,6 +14,7 @@ dt <- seq(ymd_hms(paste(2011, 9, 3,  00, 00, 00, sep = "-")),
           ymd_hms(paste(2017, 9, 11, 21, 00, 00, sep = "-")),
           by="10 days")
 
+
 wind_series       <- wind.dl_2(dt, -170, 170, -90, 80)
 wind_series_layer <- wind2raster(wind_series)
 
@@ -48,5 +49,10 @@ Conductance <- flow.dispersion(wind_series_mean_layer,
                                output="transitionLayer", 
                                type="active")
 
+# writeRaster(wind_series_mean_layer,
+#             filename="output/wind_series_mean_layer.grd",
+#             format="raster",
+#             bylayer=TRUE,
+#             overwrite=TRUE)
 
 
