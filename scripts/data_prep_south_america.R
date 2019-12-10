@@ -1,6 +1,9 @@
-## This file prepares africa grid cell file
+## Description: 
+## This file prepares a basic shapefile consisting of a grid covering Spanish 
+## America. The grid-cell size is 25km. Information on which state each cell 
+## pertains to is also added.
 
-## Loading packages and datasets 
+## Loading datasets 
 set.seed(11042018)
 
 crs_south_america <- "+proj=moll +datum=WGS84 +units=km +pm=bogota"
@@ -27,7 +30,6 @@ countries_list <- c("Chile",
 study_area <- countries110[countries110@data$ADMIN %in% countries_list, ]
 study_area_unprojected <- countries110[countries110@data$ADMIN %in% 
                                        countries_list ,]
-
 
 ## States and provinces IPUMS
 argentina           <- readOGR("data/regions/geo1_ar1970_2010/geo1_ar1970_2010.shp",
@@ -69,7 +71,6 @@ venezuela           <- readOGR("data/regions/geo1_ve1971_2001/geo1_ve1971_2001.s
 uruguay             <- readOGR("data/regions/geo1_uy1963_2011/geo1_uy1963_2011.shp",
                                "geo1_uy1963_2011") 
 
-
 states <- bind(argentina,  bolivia,  brazil,             chile,     colombia, 
                costa_rica, cuba,     dominican_republic, ecuador,   el_salvador, 
                guatemala,  honduras, mexico,             nicaragua, panama, 
@@ -85,7 +86,6 @@ study_area <- spTransform(study_area,
 
 ## Generating the grid cells
 # buffer <- gBuffer(study_area, width = 50)
-
 hex_points <- spsample(study_area, 
                        type = "hexagonal", 
                        cellsize = 50)
@@ -112,8 +112,7 @@ for (j in countries_list){
                                  hexagons,
                                  byid=TRUE)
   
-  # A country level dataset is generated and values are extracted from 
-  # the natural earth dataset
+  # A country level dataset is generated and values are extracted from natural earth  
   country_tmp <- hexagons[country_logical]
   ID_country_tmp <- sapply(country_tmp@polygons, 
                            function(x) x@ID)
@@ -146,7 +145,7 @@ south_america <- SpatialPolygonsDataFrame(final,
                                           country_df, 
                                           match.ID = TRUE)
 
-# Adding the state
+# Adding the which state each grid-cell is in  
 fe <- c()
 k <- 1
 for(i in south_america@data$ID){
@@ -178,7 +177,5 @@ south_america@data$states <- ifelse(south_america@data$ID=="ID18599",
                                     south_america@data$states)
 
 south_america@data$states <- as.factor(south_america@data$states)
-# Output: south_america is an sp file of grid cells containing basic country 
-#         level data.
 
 
