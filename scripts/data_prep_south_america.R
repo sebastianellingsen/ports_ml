@@ -94,6 +94,7 @@ viceroyalty_fe <- function(x){
 south_america@data$viceroyalty <- as.character(sapply(south_america@data$ID, 
                                                  function(x) viceroyalty_fe(x)))
 
+
 ## Audiencia fixed effects  
 audiencia_fe <- function(x){
   cell <- south_america[south_america@data$ID==x, ]
@@ -109,12 +110,20 @@ south_america@data$viceroyalty <- ifelse(is.na(south_america@data$viceroyalty),
                                          south_america@data$viceroyalty)
 
 south_america@data$audiencia <- ifelse(is.na(south_america@data$audiencia), 
-                                       'frontier', 
-                                       south_america@data$audiencia)
+                                      paste('frontier', 
+                                            south_america@data$viceroyalty, 
+                                            sep = ' '), 
+                                      south_america@data$audiencia)
+
 
 # Longitude and latitude 
 south_america@data$lon <- coordinates(south_america)[,1]
 south_america@data$lat <- coordinates(south_america)[,2]
+
+
+
+
+
 
 
 
