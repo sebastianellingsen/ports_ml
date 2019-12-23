@@ -21,57 +21,44 @@ countries_list <- c("Chile",
                     "Cuba", 
                     "Dominican Republic")
 
-## Accessing the projection 
-crs_south_america <- crs(south_america)
-
-# Weather and climate data
+## Weather and climate data
 bio = getData('worldclim', var='bio', res=2.5, lon=22.440823, lat=5.539446)
 
 for(i in 1:20) { 
   k <- projectRaster(aggregate(raster(bio, layer=i), 2), 
-                     crs = crs_south_america, 
+                     crs = crs(south_america), 
                      method = "bilinear")
   assign(paste("bio", i, sep = "") , k)
   print(i)
 }
 
-# Crop suitability 
-crop <- c("banana", "coffee", "tobacco", "cotton", "wheat", "tea") 
-for(i in crop) { 
+
+## Loading files on crop suitability 
+file_names <- list.files('data/crops')
+load_crops <- function(x){
   
-  i2 <- substr(i, 1, 3)
-  path1 <- paste("data/crops", i, sep="/")
-  path2 <- paste(paste("res03_crav6190l_silr", i2, sep="_"), ".tif", sep="")
-  
-  assign(i, projectRaster(raster(paste(path1, path2, sep="/")), 
-                          crs = crs_south_america, 
-                          method = "bilinear"))
+  path_tmp       <- paste('data/crops', file_names[x], sep = '/')
+  file_names_tmp <- list.files(path_tmp)
+  index <- which(substr(file_names_tmp, 
+                        nchar(file_names_tmp)-2, 
+                        nchar(file_names_tmp)) == 'tif')
+  file_tmp <- file_names_tmp[index]
+  raster_tmp     <- raster(paste(path_tmp, file_tmp, sep = '/'))
+  assign(file_names[x], raster_tmp)
 }
-
-# Other raster files
-# Sugarcane  
-sugarcane <- raster("data/crops/sugar_cane/res03_crav6190l_silr_suc.tif")
-sugarcane <- projectRaster(sugarcane, 
-                           crs    = crs_south_america, 
-                           method = "bilinear")
-
-# Cacao  
-cacao <- raster("data/crops/cacao/res03_crav6190l_silr_coc.tif")
-cacao <- projectRaster(cacao, 
-                       crs    = crs_south_america, 
-                       method = "bilinear")
-
-# Maize  
-maize <- raster("data/crops/maize/res03_crav6190l_silr_mze.tif")
-maize <- projectRaster(maize, 
-                       crs    = crs_south_america, 
-                       method = "bilinear")
+sapply(1:length(file_names), function(x) load_crops(x))
 
 
-# locations of mineral deposits
+# Loading files on the location of mineral deposits 
 mines <- readOGR("data/mines/ofr20051294/ofr20051294.shp", 
                  "ofr20051294")
-mines <- spTransform(mines, crs_south_america)
+
+
+
+
+
+
+
 
 # Elevation data
 elev               <- raster("data/elevation/ETOPO1_Ice_g_geotiff.tif")
@@ -195,9 +182,9 @@ south_america@data$coast_ds <- coast_ds$distance
 south_america@data$long_proj <- coordinates(south_america)[,1]
 south_america@data$lat_proj <- coordinates(south_america)[,2]
 
-# longitude and latitude 
-south_america@data$long <- coordinates(south_america_unprojected)[,1]
-south_america@data$lat  <- coordinates(south_america_unprojected)[,2]
+
+
+
 
 
 ## Making virtual countries for fixed effects 
@@ -234,30 +221,6 @@ vc_country <- sapply(south_america@data$ID,
 
 south_america@data$vc_country <- vc_country
 
-
-
-## Audiencia and viceroyalty fixed effects using 1790 borders 
-audiencia   <- readOGR("Audiencia_Dissolve_1790/Audiencia_Dissolve_1790.shp", "Audiencia_Dissolve_1790")
-viceroyalty <- readOGR("Virreinato_Dissolve_1790/Virreinato_Dissolve_1790.shp", "Virreinato_Dissolve_1790")
-viceroyalty <- spTransform(viceroyalty, crs(south_america))
-audiencia   <- spTransform(audiencia, crs(south_america))
-
-extracting_viceroyalty <- function(x){
-  cell <- south_america[south_america@data$ID==x, ]
-  return(over(cell, viceroyalty)$Nombre)
-}
-south_america@data$viceroyalty <- as.character(sapply(south_america@data$ID, 
-                                                   function(x) extracting_viceroyalty(x)))
-## Southern Venezuela missing, adding these manually 
-south_america@data$viceroyalty <- ifelse(is.na(south_america@data$viceroyalty), 'Nueva Granada', south_america@data$viceroyalty)
-
-extracting_audiencia <- function(x){
-  cell <- south_america[south_america@data$ID==x, ]
-  return(over(cell, audiencia)$Nombre)
-}
-south_america@data$audiencia <- as.character(sapply(south_america@data$ID, 
-                                                      function(x) extracting_audiencia(x)))
-south_america@data$audiencia <- ifelse(is.na(south_america@data$audiencia), 'frontier', south_america@data$audiencia)
 
 ## Distance to major cities 
 dat = read.csv("data/chandler/chandlerV2.csv",
@@ -411,7 +374,6 @@ south_america@data$dist_port_1777<- sapply(south_america@data$ID,
                                            function(x) distance_to_port_1777(x))
 
 
-
 ## Distance to the free ports
 free_ports <- ports[ports@data$`Port status`!='Restricted', ]
 free_ports <- spTransform(free_ports, crs(south_america))
@@ -423,6 +385,27 @@ distance_free_port <- function(x){
 
 south_america@data$distance_free_port <- sapply(south_america@data$ID, 
                                                 function(x) distance_free_port(x))
+
+
+
+## Finding the name of the closest historical port
+ports_projected <- spTransform(ports, crs(south_america))
+closest_port <- function(x){
+  cell <- south_america[south_america@data$ID == x,]
+  dist <- which.min(gDistance(ports_projected, cell, byid = TRUE))
+  return(ports[dist,]@data$ports)
+}
+south_america@data$c_port <- sapply(south_america@data$ID, 
+                                      function(x) closest_port(x))
+
+
+
+# for each cell, calculate the distance to each, 
+# return the one that is closest
+
+
+
+
 
 
 
